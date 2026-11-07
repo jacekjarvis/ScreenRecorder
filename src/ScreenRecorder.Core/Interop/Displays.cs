@@ -48,6 +48,32 @@ public static class Displays
         return list.OrderByDescending(m => m.IsPrimary).ThenBy(m => m.Bounds.X).ToList();
     }
 
+    /// <summary>The monitor showing most of <paramref name="r"/> (the primary one when it is off every screen).</summary>
+    public static MonitorInfo MonitorFor(PixelRect r)
+    {
+        var monitors = GetMonitors();
+        return monitors.MaxBy(m => AreaOf(m.Bounds.Intersect(r))) is { } best && AreaOf(best.Bounds.Intersect(r)) > 0 ? best : monitors[0];
+    }
+
+    /// <summary>
+    /// Returns <paramref name="r"/> unchanged when it is (nearly) all on screen; otherwise moves it,
+    /// and shrinks it if needed, onto the monitor that shows most of it, or onto <paramref name="fallback"/>
+    /// when none of it is visible. Keeps the red region frame from ending up where it can't be seen.
+    /// </summary>
+    public static PixelRect KeepOnScreen(PixelRect r, PixelRect fallback)
+    {
+        if (r.IsEmpty) return fallback;
+        var monitors = GetMonitors();
+        long visible = monitors.Sum(m => AreaOf(m.Bounds.Intersect(r)));
+        if (visible * 10 >= AreaOf(r) * 9) return r;
+        var best = monitors.MaxBy(m => AreaOf(m.Bounds.Intersect(r)))!;
+        var b = AreaOf(best.Bounds.Intersect(r)) > 0 ? best.Bounds : fallback;
+        int w = Math.Min(r.Width, b.Width), h = Math.Min(r.Height, b.Height);
+        return new PixelRect(Math.Clamp(r.X, b.X, b.Right - w), Math.Clamp(r.Y, b.Y, b.Bottom - h), w, h);
+    }
+
+    private static long AreaOf(PixelRect r) => r.IsEmpty ? 0 : (long)r.Width * r.Height;
+
     public static PixelRect VirtualScreen => new(
         Native.GetSystemMetrics(Native.SM_XVIRTUALSCREEN), Native.GetSystemMetrics(Native.SM_YVIRTUALSCREEN),
         Native.GetSystemMetrics(Native.SM_CXVIRTUALSCREEN), Native.GetSystemMetrics(Native.SM_CYVIRTUALSCREEN));

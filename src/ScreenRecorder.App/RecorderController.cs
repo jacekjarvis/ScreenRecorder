@@ -23,6 +23,7 @@ public sealed class RecorderController
     private NoteWindow? _note;
     private DateTime _cursorAtEdgeSince = DateTime.MaxValue;
     private DateTime? _scheduledStop;
+    private int _ticks;
 
     public AppSettings Settings { get; }
     public RecorderState State { get; private set; } = RecorderState.Idle;
@@ -44,10 +45,11 @@ public sealed class RecorderController
     public void ShowRegionFrame()
     {
         CloseRegionFrame();
-        var primary = Displays.GetMonitors()[0].Bounds;
-        var r = Settings.LastRegion is { IsEmpty: false } last && !Displays.VirtualScreen.Intersect(last).IsEmpty
-            ? last
-            : new PixelRect(primary.X + primary.Width / 6, primary.Y + primary.Height / 6, primary.Width * 2 / 3, primary.Height * 2 / 3);
+        // A new or lost region goes in the middle of the screen you're using (where the mouse is).
+        GetCursorPos(out var p);
+        var screen = Displays.MonitorFor(new PixelRect(p.X, p.Y, 1, 1)).Bounds;
+        var middle = new PixelRect(screen.X + screen.Width / 6, screen.Y + screen.Height / 6, screen.Width * 2 / 3, screen.Height * 2 / 3);
+        var r = Displays.KeepOnScreen(Settings.LastRegion ?? default, middle);
         var frame = new RegionFrameWindow(r, locked: false);
         frame.RegionChanged += () => RegionFrameChanged?.Invoke();
         RegionFrame = frame;
@@ -154,6 +156,8 @@ public sealed class RecorderController
     public async Task StartNowAsync()
     {
         if (IsBusy) return;
+        // Mark what is being recorded (e.g. when started by hotkey). The frame never appears in the recording.
+        if (Settings.Area == AreaKind.Region && RegionFrame == null) ShowRegionFrame();
         var target = BuildTarget();
         if (target == null)
         {
@@ -175,8 +179,6 @@ public sealed class RecorderController
         try
         {
             if (Settings.HideDesktopIcons) _iconsHidden = DesktopIcons.Hide();
-            // Mark what is being recorded (e.g. when started by hotkey). The frame never appears in the recording.
-            if (Settings.Area == AreaKind.Region && RegionFrame == null) ShowRegionFrame();
             if (Settings.Area == AreaKind.Window && RegionFrame == null && PickedWindow != null) ShowWindowFrame(PickedWindow.Handle);
             var options = new RecordingOptions
             {
@@ -313,6 +315,8 @@ public sealed class RecorderController
             _ = StopAsync("The scheduled recording finished.");
         }
         if (Settings.NotesEnabled && State == RecorderState.Recording && _note == null) WatchNotesEdge();
+        // Other always-on-top windows (meeting apps, full-screen players) can cover the red frame; bring it back.
+        if (++_ticks % 10 == 0) RegionFrame?.KeepOnTop();
         Tick?.Invoke();
     }
 

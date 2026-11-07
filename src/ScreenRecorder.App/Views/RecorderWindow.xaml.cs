@@ -28,6 +28,7 @@ public partial class RecorderWindow : Window
     private string? _micMonitorId = "-", _pcMonitorId = "-";
     private bool _loading;
     private bool _picking;
+    private ScreenHighlighter? _highlight;
 
     private AppSettings S => _c.Settings;
 
@@ -42,6 +43,7 @@ public partial class RecorderWindow : Window
         _c.StateChanged += UpdateMonitors;
         _meterTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Render, (_, _) => UpdateMeters(), Dispatcher);
         IsVisibleChanged += (_, _) => UpdateMonitors();
+        SetUpAreaHighlight();
         Closed += (_, _) => { _meterTimer.Stop(); StopMonitor(ref _micMonitor); StopMonitor(ref _pcMonitor); };
         Loaded += (_, _) => { LoadOptions(); UpdateState(); };
         Closing += async (_, e) =>
@@ -179,12 +181,50 @@ public partial class RecorderWindow : Window
         if (PcCheck.IsChecked == true) PcMeter.Push(_pcMonitor?.TakePeak() ?? 0);
     }
 
+    // ---------------- Area: show which screen will be recorded ----------------
+
+    private static readonly TimeSpan HighlightTime = TimeSpan.FromSeconds(2);
+
+    private void SetUpAreaHighlight()
+    {
+        _highlight = new ScreenHighlighter(this);
+        // Moving through the open list (mouse or arrow keys) previews each screen, as in FlashBack.
+        AreaItem? previewed = null;
+        var watch = new DispatcherTimer(TimeSpan.FromMilliseconds(60), DispatcherPriority.Input, (_, _) =>
+        {
+            var hovered = AreaCombo.Items.OfType<AreaItem>()
+                .FirstOrDefault(i => AreaCombo.ItemContainerGenerator.ContainerFromItem(i) is ComboBoxItem { IsHighlighted: true });
+            if (hovered != null && hovered != previewed) Highlight(previewed = hovered, stay: true);
+        }, Dispatcher) { IsEnabled = false };
+        AreaCombo.DropDownOpened += (_, _) =>
+        {
+            previewed = AreaCombo.SelectedItem as AreaItem;
+            if (previewed != null) Highlight(previewed, stay: true);
+            watch.Start();
+        };
+        AreaCombo.DropDownClosed += (_, _) =>
+        {
+            watch.Stop();
+            if (AreaCombo.SelectedItem is AreaItem item) Highlight(item, stay: false);
+        };
+        _c.StateChanged += () => { if (_c.IsBusy) _highlight.Hide(); };
+        IsVisibleChanged += (_, _) => { if (!IsVisible) _highlight.Hide(); };
+        Closed += (_, _) => _highlight.Hide();
+    }
+
+    private void Highlight(AreaItem item, bool stay)
+    {
+        if (_c.IsBusy || !IsVisible) return;
+        _highlight?.Show(item.Kind, item.Device, stay ? null : HighlightTime);
+    }
+
     private async void Area_Changed(object sender, SelectionChangedEventArgs e)
     {
         if (_loading || AreaCombo.SelectedItem is not AreaItem item) return;
         S.Area = item.Kind;
         S.MonitorDevice = item.Device ?? S.MonitorDevice;
         S.Save();
+        if (!AreaCombo.IsDropDownOpen) Highlight(item, stay: false);
         _c.CloseRegionFrame();
         if (item.Kind == AreaKind.Region) _c.ShowRegionFrame();
         if (item.Kind == AreaKind.Window) await PickWindowAsync();
@@ -228,12 +268,23 @@ public partial class RecorderWindow : Window
         {
             AreaKind.Window => _c.PickedWindow is { } w ? $"Window: {w.Title}" : "No window chosen — pick Window again and click a window",
             AreaKind.Region => _c.RegionFrame is { IsLocked: false } f
-                ? $"Region: {f.RegionPixels.ToEvenSize()}  (move or resize the red frame)"
-                : S.LastRegion is { } last ? $"Region: {last.ToEvenSize()}  (press Record to position the red frame)" : "Press Record to position the red frame",
+                ? $"Region: {Describe(f.RegionPixels)}  (move or resize the red frame)"
+                : S.LastRegion is { } last ? $"Region: {Describe(last)}  (press Record to position the red frame)" : "Press Record to position the red frame",
             _ => null,
         };
         AreaDetail.Text = text ?? "";
         AreaDetail.Visibility = text == null ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    /// <summary>"1280 × 720 on monitor 2" (the monitor number matches the Area list).</summary>
+    private static string Describe(PixelRect r)
+    {
+        var e = r.ToEvenSize();
+        var monitors = Displays.GetMonitors();
+        string size = $"{e.Width} × {e.Height}";
+        if (monitors.Count < 2) return size;
+        int n = monitors.ToList().FindIndex(m => m.DeviceName == Displays.MonitorFor(r).DeviceName) + 1;
+        return $"{size} on monitor {n}";
     }
 
     // ---------------- recording ----------------

@@ -11,7 +11,8 @@ internal static class AppIcons
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern bool DestroyIcon(IntPtr handle);
 
-    public static Icon Create(State state)
+    /// <param name="dot">How strongly the red/amber dot shows, 0 (gone) to 1 (full): the tray pulses it while recording.</param>
+    public static Icon Create(State state, float dot = 1)
     {
         using var bmp = new Bitmap(32, 32);
         using (var g = Graphics.FromImage(bmp))
@@ -24,14 +25,16 @@ internal static class AppIcons
             using var white = new SolidBrush(Color.White);
             g.FillRectangle(white, 6, 9, 14, 14);
             g.FillPolygon(white, new[] { new PointF(20, 14), new PointF(26, 10), new PointF(26, 22), new PointF(20, 18) });
-            var dot = state switch
+            var color = state switch
             {
                 State.Recording => Color.FromArgb(0xE0, 0x26, 0x2A),
                 State.Paused => Color.FromArgb(0xF0, 0xA0, 0x20),
                 _ => Color.FromArgb(0x2F, 0x7F, 0xE0),
             };
-            using var dotBrush = new SolidBrush(dot);
-            g.FillEllipse(dotBrush, 9, 12, 8, 8);
+            using var dotBrush = new SolidBrush(Color.FromArgb((int)(Math.Clamp(dot, 0, 1) * 255), color));
+            // A bigger dot while recording or paused, so it can be seen at tray size.
+            if (state == State.Idle) g.FillEllipse(dotBrush, 9, 12, 8, 8);
+            else g.FillEllipse(dotBrush, 7.5f, 10.5f, 11, 11);
         }
         IntPtr h = bmp.GetHicon();
         try { return (Icon)Icon.FromHandle(h).Clone(); }

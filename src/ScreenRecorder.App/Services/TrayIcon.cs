@@ -26,6 +26,7 @@ public sealed class TrayIcon : IDisposable
             if (e.Button == WinForms.MouseButtons.Left) ShowMenu();
         };
         _icon.MouseDoubleClick += (_, _) => App.Current.RestoreRecorder();
+        _pulse.Tick += (_, _) => Pulse();
         _c.StateChanged += Update;
         _c.Tick += UpdateText;
         Update();
@@ -94,8 +95,26 @@ public sealed class TrayIcon : IDisposable
             if (!_icons.TryGetValue(state, out var icon)) _icons[state] = icon = AppIcons.Create(state);
             _icon.Icon = icon;
             _shown = state;
+            _pulseStep = 0;
+            _pulse.Enabled = state == AppIcons.State.Recording;
         }
         UpdateText();
+    }
+
+    // While recording, the red dot slowly fades out and back in (one breath every 2 seconds),
+    // so a glance at the tray shows a recording is running. Paused keeps a steady amber dot.
+    private const int PulseSteps = 20, PulseLevels = 10;
+    private readonly WinForms.Timer _pulse = new() { Interval = 2000 / PulseSteps };
+    private readonly Drawing.Icon?[] _pulseIcons = new Drawing.Icon?[PulseLevels + 1];
+    private int _pulseStep;
+
+    private void Pulse()
+    {
+        if (_shown != AppIcons.State.Recording) { _pulse.Enabled = false; return; }
+        _pulseStep = (_pulseStep + 1) % PulseSteps;
+        double strength = 0.5 + 0.5 * Math.Cos(2 * Math.PI * _pulseStep / PulseSteps); // 1 → 0 → 1
+        int level = (int)Math.Round(strength * PulseLevels);
+        _icon.Icon = _pulseIcons[level] ??= AppIcons.Create(AppIcons.State.Recording, 0.12f + 0.88f * level / PulseLevels);
     }
 
     private void UpdateText()
@@ -112,10 +131,12 @@ public sealed class TrayIcon : IDisposable
 
     public void Dispose()
     {
+        _pulse.Dispose();
         _icon.Visible = false;
         _icon.Dispose();
         _menu.Dispose();
         foreach (var i in _icons.Values) i.Dispose();
+        foreach (var i in _pulseIcons) i?.Dispose();
     }
 
     private sealed class DarkRenderer : WinForms.ToolStripProfessionalRenderer

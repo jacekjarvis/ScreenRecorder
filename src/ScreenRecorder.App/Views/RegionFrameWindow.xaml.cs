@@ -62,6 +62,27 @@ public partial class RegionFrameWindow : Window
         if (_hwnd != IntPtr.Zero) SetWindowPos(_hwnd, IntPtr.Zero, r.X, r.Y, r.Width, r.Height, SWP_NOZORDER | SWP_NOACTIVATE);
     }
 
+    private static readonly IntPtr HWND_TOPMOST = new(-1);
+    private const uint SWP_NOMOVE = 0x2, SWP_NOSIZE = 0x1;
+
+    /// <summary>Puts the frame back above other always-on-top windows.</summary>
+    public void KeepOnTop()
+    {
+        if (_hwnd != IntPtr.Zero) SetWindowPos(_hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    }
+
+    /// <summary>After a move or resize, pulls the frame back if it was dragged (mostly) off the screens.</summary>
+    private void Drag_Completed(object sender, DragCompletedEventArgs e)
+    {
+        var r = RegionPixels;
+        var fit = Displays.KeepOnScreen(r, Displays.MonitorFor(r).Bounds);
+        if (fit != r)
+        {
+            MoveTo(fit);
+            RegionChanged?.Invoke();
+        }
+    }
+
     /// <summary>While recording the frame is fixed and lets clicks through.</summary>
     public void SetRecording(bool recording)
     {
