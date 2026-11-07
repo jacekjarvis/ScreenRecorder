@@ -226,7 +226,7 @@ public sealed class RecordingSession : IAsyncDisposable
         Failed?.Invoke(message);
     }
 
-    /// <summary>Finishes every track and writes the final project.json.</summary>
+    /// <summary>Finishes every track and writes the final recording (.jsrec) file.</summary>
     public async Task<ProjectManifest> StopAsync()
     {
         lock (_gate)

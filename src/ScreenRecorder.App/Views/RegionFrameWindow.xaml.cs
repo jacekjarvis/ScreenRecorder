@@ -25,6 +25,9 @@ public partial class RegionFrameWindow : Window
 
     public event Action? RegionChanged;
 
+    /// <summary>True for the fixed frame around a picked window.</summary>
+    public bool IsLocked => _locked;
+
     public RegionFrameWindow(PixelRect initial, bool locked)
     {
         InitializeComponent();

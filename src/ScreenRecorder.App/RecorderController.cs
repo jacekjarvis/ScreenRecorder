@@ -37,6 +37,46 @@ public sealed class RecorderController
 
     public event Action? StateChanged;
     public event Action? Tick;
+    /// <summary>The red frame was shown, moved, resized or closed.</summary>
+    public event Action? RegionFrameChanged;
+
+    /// <summary>Shows the movable red region frame at the last region used (or a sensible default).</summary>
+    public void ShowRegionFrame()
+    {
+        CloseRegionFrame();
+        var primary = Displays.GetMonitors()[0].Bounds;
+        var r = Settings.LastRegion is { IsEmpty: false } last && !Displays.VirtualScreen.Intersect(last).IsEmpty
+            ? last
+            : new PixelRect(primary.X + primary.Width / 6, primary.Y + primary.Height / 6, primary.Width * 2 / 3, primary.Height * 2 / 3);
+        var frame = new RegionFrameWindow(r, locked: false);
+        frame.RegionChanged += () => RegionFrameChanged?.Invoke();
+        RegionFrame = frame;
+        frame.Show();
+        RegionFrameChanged?.Invoke();
+    }
+
+    /// <summary>Shows a fixed red frame around a picked window.</summary>
+    public void ShowWindowFrame(IntPtr hwnd)
+    {
+        CloseRegionFrame();
+        RegionFrame = new RegionFrameWindow(Displays.GetWindowBounds(hwnd), locked: true);
+        RegionFrame.Show();
+        RegionFrameChanged?.Invoke();
+    }
+
+    /// <summary>Removes the red frame (remembering a region's position for next time).</summary>
+    public void CloseRegionFrame()
+    {
+        if (RegionFrame == null) return;
+        if (!RegionFrame.IsLocked)
+        {
+            Settings.LastRegion = RegionFrame.RegionPixels;
+            Settings.Save();
+        }
+        RegionFrame.Close();
+        RegionFrame = null;
+        RegionFrameChanged?.Invoke();
+    }
 
     public RecorderController(AppSettings settings)
     {
@@ -65,7 +105,7 @@ public sealed class RecorderController
             if (Settings.ScheduleStart > DateTime.Now)
             {
                 SetState(RecorderState.Scheduled);
-                Dialogs.Info($"The next recording is scheduled to start at {Settings.ScheduleStart:t} on {Settings.ScheduleStart:d}.\n\nLeave ScreenRecorder running.", "Scheduled recording");
+                Dialogs.Info($"The next recording is scheduled to start at {Settings.ScheduleStart:t} on {Settings.ScheduleStart:d}.\n\nLeave Jarvo Screen Recorder running.", "Scheduled recording");
                 return;
             }
             await StartScheduledAsync();
@@ -103,7 +143,7 @@ public sealed class RecorderController
                     return new CaptureTarget.Window(w.Handle, w.Title);
                 return null;
             case AreaKind.Region:
-                var r = RegionFrame?.RegionPixels ?? Settings.LastRegion;
+                var r = RegionFrame is { IsLocked: false } f ? f.RegionPixels : Settings.LastRegion;
                 return r is { IsEmpty: false } rr ? CaptureTarget.Region(rr) : null;
             default:
                 var m = monitors.FirstOrDefault(x => x.DeviceName == Settings.MonitorDevice) ?? monitors[0];
@@ -124,7 +164,7 @@ public sealed class RecorderController
         }
         if (!Core.Encoding.FFmpeg.IsAvailable)
         {
-            Dialogs.Warn("FFmpeg was not found. Put ffmpeg.exe next to ScreenRecorder.exe, or install it with:\n\nwinget install Gyan.FFmpeg", "FFmpeg needed");
+            Dialogs.Warn("FFmpeg was not found. Put ffmpeg.exe next to JarvoScreenRecorder.exe, or install it with:\n\nwinget install Gyan.FFmpeg", "FFmpeg needed");
             return;
         }
         if (target is CaptureTarget.Area a) Settings.LastRegion = Settings.Area == AreaKind.Region ? a.Bounds : Settings.LastRegion;
@@ -135,6 +175,9 @@ public sealed class RecorderController
         try
         {
             if (Settings.HideDesktopIcons) _iconsHidden = DesktopIcons.Hide();
+            // Mark what is being recorded (e.g. when started by hotkey). The frame never appears in the recording.
+            if (Settings.Area == AreaKind.Region && RegionFrame == null) ShowRegionFrame();
+            if (Settings.Area == AreaKind.Window && RegionFrame == null && PickedWindow != null) ShowWindowFrame(PickedWindow.Handle);
             var options = new RecordingOptions
             {
                 Target = target,
@@ -240,7 +283,8 @@ public sealed class RecorderController
             _session = null;
             _scheduledStop = null;
             RestoreDesktop();
-            RegionFrame?.SetRecording(false);
+            // The red frame goes away when recording stops; it returns when you next record a region.
+            CloseRegionFrame();
             SetState(RecorderState.Idle);
         }
     }

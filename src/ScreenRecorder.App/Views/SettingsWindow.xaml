@@ -68,7 +68,7 @@
                         <TextBlock Text="Cleaner recordings" Style="{StaticResource Heading}"/>
                         <CheckBox x:Name="HideIcons" Content="Hide desktop icons while recording"/>
                         <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap" Margin="0,14,0,0"
-                                   Text="ScreenRecorder's own windows (toolbar, frame, notes) are never shown in recordings."/>
+                                   Text="Jarvo Screen Recorder's own windows (toolbar, frame, notes) are never shown in recordings."/>
                     </StackPanel>
                 </TabItem>
                 <TabItem Header="Keystrokes">

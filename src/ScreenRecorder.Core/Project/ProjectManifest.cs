@@ -5,12 +5,15 @@ using ScreenRecorder.Core.Interop;
 namespace ScreenRecorder.Core.Project;
 
 /// <summary>
-/// project.json — describes one recording. Every track is timed against the same clock,
-/// with t = 0 at the first video frame and paused time removed.
+/// The recording file ("&lt;recording name&gt;.jsrec", JSON) that describes one recording folder.
+/// Double-clicking it opens the recording in the Video Editor. Every track is timed against the
+/// same clock, with t = 0 at the first video frame and paused time removed.
 /// </summary>
 public sealed class ProjectManifest
 {
-    public const string FileName = "project.json";
+    /// <summary>Jarvo Screen Recording.</summary>
+    public const string Extension = ".jsrec";
+    public const string LegacyFileName = "project.json";
     public const string ScreenFile = "screen.mkv";
     public const string SystemAudioFile = "system.pcm";
     public const string MicFile = "mic.pcm";
@@ -53,17 +56,56 @@ public sealed class ProjectManifest
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
+    /// <summary>
+    /// Finds the recording file in a folder: "&lt;name&gt;.jsrec" (Jarvo Screen Recording), or the older
+    /// "project.json". Returns null if the folder isn't a recording.
+    /// </summary>
+    public static string? FindFile(string projectDir)
+    {
+        if (!Directory.Exists(projectDir)) return null;
+        var jsrec = Directory.EnumerateFiles(projectDir, "*" + Extension).FirstOrDefault();
+        if (jsrec != null) return jsrec;
+        string legacy = Path.Combine(projectDir, LegacyFileName);
+        return File.Exists(legacy) ? legacy : null;
+    }
+
+    public static bool Exists(string projectDir) => FindFile(projectDir) != null;
+
+    /// <summary>Turns a .jsrec file, a project.json or a recording folder into the recording folder (null if none).</summary>
+    public static string? ResolveDirectory(string path)
+    {
+        if (File.Exists(path))
+        {
+            string name = Path.GetFileName(path);
+            bool isRecordingFile = name.EndsWith(Extension, StringComparison.OrdinalIgnoreCase)
+                                   || name.Equals(LegacyFileName, StringComparison.OrdinalIgnoreCase);
+            return isRecordingFile ? Path.GetDirectoryName(Path.GetFullPath(path)) : null;
+        }
+        return Directory.Exists(path) && Exists(path) ? Path.GetFullPath(path) : null;
+    }
+
     public void Save(string projectDir)
     {
-        string path = Path.Combine(projectDir, FileName);
+        string? existing = FindFile(projectDir);
+        string path = existing != null && existing.EndsWith(Extension, StringComparison.OrdinalIgnoreCase)
+            ? existing
+            : Path.Combine(projectDir, Path.GetFileName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(projectDir))) + Extension);
         string tmp = path + ".tmp";
         File.WriteAllText(tmp, JsonSerializer.Serialize(this, Json));
         File.Move(tmp, path, overwrite: true);
+        // Recordings made before the .jsrec format are upgraded the first time they're saved.
+        if (existing != null && !existing.Equals(path, StringComparison.OrdinalIgnoreCase))
+        {
+            try { File.Delete(existing); } catch { }
+        }
     }
 
-    public static ProjectManifest Load(string projectDir) =>
-        JsonSerializer.Deserialize<ProjectManifest>(File.ReadAllText(Path.Combine(projectDir, FileName)), Json)
-        ?? throw new InvalidDataException("project.json is empty.");
+    public static ProjectManifest Load(string projectDir)
+    {
+        string file = FindFile(projectDir) ?? throw new FileNotFoundException($"No recording was found in {projectDir}.");
+        return JsonSerializer.Deserialize<ProjectManifest>(File.ReadAllText(file), Json)
+               ?? throw new InvalidDataException($"{Path.GetFileName(file)} is empty.");
+    }
 }
 
 /// <summary>Raw signed 16-bit little-endian PCM.</summary>

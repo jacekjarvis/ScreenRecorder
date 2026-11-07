@@ -68,7 +68,7 @@ public partial class PlayerWindow : Window
             _redo.Clear();
             _current = 0;
             _bitmap = null;
-            Bar.Title = $"ScreenRecorder Video Editor — {Path.GetFileName(dir)}";
+            Bar.Title = $"Jarvo Screen Recorder — Video Editor — {Path.GetFileName(dir)}";
             EmptyHint.Visibility = Visibility.Collapsed;
             _settings.AddRecent(dir);
             RefreshTimeline();
@@ -86,7 +86,7 @@ public partial class PlayerWindow : Window
         var dlg = new Microsoft.Win32.OpenFileDialog
         {
             Title = "Open recording",
-            Filter = "ScreenRecorder recording|project.json",
+            Filter = "Jarvo Screen Recordings (*.jsrec)|*.jsrec;project.json",
             InitialDirectory = Directory.Exists(_settings.OutputFolder) ? _settings.OutputFolder : null,
         };
         if (dlg.ShowDialog(this) == true) Open(Path.GetDirectoryName(dlg.FileName)!);
@@ -96,9 +96,7 @@ public partial class PlayerWindow : Window
     {
         if (e.Data.GetData(DataFormats.FileDrop) is string[] { Length: > 0 } paths)
         {
-            string p = paths[0];
-            string dir = Directory.Exists(p) ? p : Path.GetDirectoryName(p)!;
-            if (File.Exists(Path.Combine(dir, ProjectManifest.FileName))) Open(dir);
+            if (ProjectManifest.ResolveDirectory(paths[0]) is { } dir) Open(dir);
         }
     }
 
@@ -382,7 +380,8 @@ public partial class PlayerWindow : Window
     {
         if (_dir == null) { Open_Click(sender, e); return; }
         StopPlayback();
-        var w = new ExportWindow(_settings, _dir, _trim.Start, _trim.End) { Owner = this };
+        // Frame numbers in the export window match the editor; a selection pre-fills "from/to".
+        var w = new ExportWindow(_settings, _dir, Selection?.Start, Selection?.End) { Owner = this };
         w.Show();
     }
 

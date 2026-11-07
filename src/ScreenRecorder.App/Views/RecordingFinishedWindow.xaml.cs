@@ -26,7 +26,10 @@ public partial class RecordingFinishedWindow : Window
         if (m.Webcam != null) tracks.Add("webcam");
         if (m.Markers.Count > 0) tracks.Add($"{m.Markers.Count} marker(s)");
         if (m.Notes.Count > 0) tracks.Add($"{m.Notes.Count} note(s)");
-        Details.Text = string.Join(" · ", tracks) + $"\nSaved in {dir}";
+        string file = Path.GetFileName(ProjectManifest.FindFile(dir) ?? dir);
+        Details.Text = string.Join(" · ", tracks) +
+                       $"\nSaved as \"{file}\" in {dir}" +
+                       "\nIt's already saved — close this and double-click that file any time to trim and export it later.";
         if (m.Warnings.Count > 0)
         {
             Warnings.Text = string.Join("\n", m.Warnings);
@@ -39,7 +42,7 @@ public partial class RecordingFinishedWindow : Window
     private void Export_Click(object sender, RoutedEventArgs e)
     {
         Close();
-        var w = new ExportWindow(_c.Settings, _dir, 0, null);
+        var w = new ExportWindow(_c.Settings, _dir);
         w.Show();
     }
 

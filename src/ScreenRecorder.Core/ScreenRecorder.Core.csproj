@@ -5,6 +5,6 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="ScreenRecorder.Tests" />
-    <InternalsVisibleTo Include="ScreenRecorder" />
+    <InternalsVisibleTo Include="JarvoScreenRecorder" />
   </ItemGroup>
 </Project>

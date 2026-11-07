@@ -4,7 +4,11 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <AssemblyName>ScreenRecorder</AssemblyName>
+    <AssemblyName>JarvoScreenRecorder</AssemblyName>
+    <Product>Jarvo Screen Recorder</Product>
+    <AssemblyTitle>Jarvo Screen Recorder</AssemblyTitle>
+    <Version>1.1.0</Version>
+    <ApplicationIcon>Assets/app.ico</ApplicationIcon>
     <RootNamespace>ScreenRecorder.App</RootNamespace>
   </PropertyGroup>
   <ItemGroup>

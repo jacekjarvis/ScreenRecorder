@@ -20,7 +20,7 @@ public sealed class TrayIcon : IDisposable
         _c = controller;
         _menu = new WinForms.ContextMenuStrip { Renderer = new DarkRenderer(), ShowImageMargin = false, Font = new Drawing.Font("Segoe UI", 9.5f) };
         _menu.Opening += (_, _) => BuildMenu();
-        _icon = new WinForms.NotifyIcon { Text = "ScreenRecorder", Visible = true, ContextMenuStrip = _menu };
+        _icon = new WinForms.NotifyIcon { Text = App.ProductName, Visible = true, ContextMenuStrip = _menu };
         _icon.MouseClick += (_, e) =>
         {
             if (e.Button == WinForms.MouseButtons.Left) ShowMenu();
@@ -102,10 +102,10 @@ public sealed class TrayIcon : IDisposable
     {
         string text = _c.State switch
         {
-            RecorderState.Recording => $"ScreenRecorder — recording {_c.Elapsed:hh\\:mm\\:ss}",
-            RecorderState.Paused => $"ScreenRecorder — paused at {_c.Elapsed:hh\\:mm\\:ss}",
-            RecorderState.Scheduled => "ScreenRecorder — waiting for scheduled start",
-            _ => "ScreenRecorder",
+            RecorderState.Recording => $"Jarvo Screen Recorder — recording {_c.Elapsed:hh\\:mm\\:ss}",
+            RecorderState.Paused => $"Jarvo Screen Recorder — paused at {_c.Elapsed:hh\\:mm\\:ss}",
+            RecorderState.Scheduled => "Jarvo Screen Recorder — waiting for scheduled start",
+            _ => App.ProductName,
         };
         if (_icon.Text != text) _icon.Text = text;
     }

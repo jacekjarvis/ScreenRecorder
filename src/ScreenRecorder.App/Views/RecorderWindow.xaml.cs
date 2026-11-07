@@ -28,16 +28,17 @@ public partial class RecorderWindow : Window
         Bar.MinimizeRequested += (_, _) => App.Current.MinimizeRecorder();
         _c.StateChanged += UpdateState;
         _c.Tick += UpdateTick;
+        _c.RegionFrameChanged += UpdateAreaDetail;
         Loaded += (_, _) => { LoadOptions(); UpdateState(); };
         Closing += async (_, e) =>
         {
-            if (!ExitOnClose) { CloseFrame(); return; }
-            if (_c.IsBusy && !Dialogs.Confirm("A recording is in progress. Stop it and exit?", "Exit ScreenRecorder", "Stop and exit", "Cancel"))
+            if (!ExitOnClose) { _c.CloseRegionFrame(); return; }
+            if (_c.IsBusy && !Dialogs.Confirm("A recording is in progress. Stop it and exit?", "Exit Jarvo Screen Recorder", "Stop and exit", "Cancel"))
             {
                 e.Cancel = true;
                 return;
             }
-            CloseFrame();
+            _c.CloseRegionFrame();
             await App.Current.ExitAsync();
         };
     }
@@ -68,8 +69,6 @@ public partial class RecorderWindow : Window
         PcCheck.IsChecked = S.RecordPcSounds;
         CamCheck.IsChecked = S.RecordWebcam;
         _loading = false;
-        // A previously chosen region comes back as the red frame.
-        if (S.Area == AreaKind.Region) ShowRegionFrame();
         UpdateAreaDetail();
     }
 
@@ -87,8 +86,8 @@ public partial class RecorderWindow : Window
         S.Area = item.Kind;
         S.MonitorDevice = item.Device ?? S.MonitorDevice;
         S.Save();
-        CloseFrame();
-        if (item.Kind == AreaKind.Region) ShowRegionFrame();
+        _c.CloseRegionFrame();
+        if (item.Kind == AreaKind.Region) _c.ShowRegionFrame();
         if (item.Kind == AreaKind.Window) await PickWindowAsync();
         UpdateAreaDetail();
     }
@@ -112,9 +111,7 @@ public partial class RecorderWindow : Window
             {
                 string title = Displays.GetWindows().FirstOrDefault(w => w.Handle == hwnd)?.Title ?? "Selected window";
                 _c.PickedWindow = new WindowInfo(hwnd, title, 0);
-                var frame = new RegionFrameWindow(Displays.GetWindowBounds(hwnd), locked: true);
-                _c.RegionFrame = frame;
-                frame.Show();
+                _c.ShowWindowFrame(hwnd);
             }
         }
         finally
@@ -126,35 +123,14 @@ public partial class RecorderWindow : Window
         }
     }
 
-    private void ShowRegionFrame()
-    {
-        CloseFrame();
-        var primary = Displays.GetMonitors()[0].Bounds;
-        var r = S.LastRegion is { IsEmpty: false } last && !Displays.VirtualScreen.Intersect(last).IsEmpty
-            ? last
-            : new PixelRect(primary.X + primary.Width / 6, primary.Y + primary.Height / 6, primary.Width * 2 / 3, primary.Height * 2 / 3);
-        var frame = new RegionFrameWindow(r, locked: false);
-        frame.RegionChanged += UpdateAreaDetail;
-        _c.RegionFrame = frame;
-        frame.Show();
-    }
-
-    private void CloseFrame()
-    {
-        if (_c.RegionFrame != null)
-        {
-            if (S.Area == AreaKind.Region) S.LastRegion = _c.RegionFrame.RegionPixels;
-            _c.RegionFrame.Close();
-            _c.RegionFrame = null;
-        }
-    }
-
     private void UpdateAreaDetail()
     {
         string? text = S.Area switch
         {
             AreaKind.Window => _c.PickedWindow is { } w ? $"Window: {w.Title}" : "No window chosen — pick Window again and click a window",
-            AreaKind.Region => _c.RegionFrame is { } f ? $"Region: {f.RegionPixels.ToEvenSize()}  (move or resize the red frame)" : null,
+            AreaKind.Region => _c.RegionFrame is { IsLocked: false } f
+                ? $"Region: {f.RegionPixels.ToEvenSize()}  (move or resize the red frame)"
+                : S.LastRegion is { } last ? $"Region: {last.ToEvenSize()}  (press Record to position the red frame)" : "Press Record to position the red frame",
             _ => null,
         };
         AreaDetail.Text = text ?? "";
@@ -166,7 +142,13 @@ public partial class RecorderWindow : Window
     private async void Record_Click(object sender, RoutedEventArgs e)
     {
         if (_c.State is RecorderState.Recording or RecorderState.Paused) { await _c.StopAsync(); return; }
-        if (S.Area == AreaKind.Region && _c.RegionFrame != null) S.LastRegion = _c.RegionFrame.RegionPixels;
+        if (S.Area == AreaKind.Region && _c.State == RecorderState.Idle && _c.RegionFrame is not { IsLocked: false })
+        {
+            // As in FlashBack: first show the red frame, then Record starts once it's where you want it.
+            _c.ShowRegionFrame();
+            StatusText.Text = "Position the red frame, then press Record";
+            return;
+        }
         await _c.RecordAsync();
         if (_c.State is RecorderState.Recording && S.MinimizeWhileRecording) App.Current.MinimizeRecorder();
     }
@@ -195,10 +177,10 @@ public partial class RecorderWindow : Window
         TimerText.Text = S.ScheduleEnabled || _c.State == RecorderState.Scheduled ? "Set Timer •" : "Set Timer";
         Bar.Title = _c.State switch
         {
-            RecorderState.Recording => "ScreenRecorder — recording",
-            RecorderState.Paused => "ScreenRecorder — paused",
-            RecorderState.Scheduled => "ScreenRecorder — waiting for scheduled start",
-            _ => "ScreenRecorder",
+            RecorderState.Recording => "Jarvo Screen Recorder — recording",
+            RecorderState.Paused => "Jarvo Screen Recorder — paused",
+            RecorderState.Scheduled => "Jarvo Screen Recorder — waiting for scheduled start",
+            _ => App.ProductName,
         };
         UpdateTick();
     }
@@ -250,16 +232,8 @@ public partial class RecorderWindow : Window
     private void Help_Click(object sender, RoutedEventArgs e)
     {
         var menu = new ContextMenu { PlacementTarget = HelpButton, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
-        menu.Items.Add(MenuItem("Help", () => Dialogs.Info(
-            "1. Choose the Area: full screen, a window (click it), or a region (move and resize the red frame).\n" +
-            "2. Tick Microphone, PC Sounds and Webcam as needed.\n" +
-            "3. Press Record. Press Stop (or the Start/Stop hotkey) when done.\n" +
-            "4. Open the recording in the Video Editor to trim it and export an MP4.\n\n" +
-            $"Hotkeys:\n  Start / stop: {S.HotkeyStartStop}\n  Pause / resume: {S.HotkeyPause}\n  Recording controls: {S.HotkeyControls}\n  Add marker: {S.HotkeyMarker}",
-            "Help")));
-        menu.Items.Add(MenuItem("About", () => Dialogs.Info(
-            $"ScreenRecorder {typeof(App).Assembly.GetName().Version?.ToString(3)}\n\nRecordings: {S.OutputFolder}\nVideo encoder: {(Core.Encoding.FFmpeg.IsAvailable ? Core.Encoding.FFmpeg.BestEncoder.ToString() : "FFmpeg not found")}",
-            "About ScreenRecorder")));
+        menu.Items.Add(MenuItem("Help", App.Current.ShowHelp));
+        menu.Items.Add(MenuItem("About", App.Current.ShowAbout));
         menu.IsOpen = true;
     }
 

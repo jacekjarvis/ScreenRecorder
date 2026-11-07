@@ -41,14 +41,15 @@ internal static class Snapshots
         void Log(string text) => File.AppendAllText(log, text + Environment.NewLine);
         var s = controller.Settings;
         s.OutputFolder = Path.Combine(outDir, "recordings");
-        s.Area = AreaKind.FullScreen;
+        s.Area = AreaKind.Region;
+        s.LastRegion = new Core.Interop.PixelRect(100, 100, 640, 360);
         s.RecordPcSounds = true;
         s.HideDesktopIcons = false;
         s.ScheduleEnabled = false;
         try
         {
             await controller.StartNowAsync();
-            Log($"after start: {controller.State}");
+            Log($"after start: {controller.State}, red frame shown: {controller.RegionFrame != null}");
             await Task.Delay(1500);
             controller.TogglePause();
             Log($"after pause: {controller.State}");
@@ -56,10 +57,11 @@ internal static class Snapshots
             controller.TogglePause();
             await Task.Delay(1500);
             await controller.StopAsync();
-            Log($"after stop: {controller.State}");
+            Log($"after stop: {controller.State}, red frame shown: {controller.RegionFrame != null}");
             foreach (var dir in Directory.GetDirectories(s.OutputFolder))
             {
                 var m = Core.Project.ProjectManifest.Load(dir);
+                Log($"files: {string.Join(", ", Directory.GetFiles(dir).Select(Path.GetFileName))}");
                 Log($"project: {Path.GetFileName(dir)} frames={m.Frames} duration={m.DurationSeconds:0.00} completed={m.Completed} warnings={string.Join(" | ", m.Warnings)}");
             }
         }

@@ -8,7 +8,15 @@
         <StackPanel>
             <v:TitleBar x:Name="Bar" Title="Export to MP4"/>
             <StackPanel x:Name="OptionsPanel" Margin="20,12,20,8">
-                <TextBlock x:Name="RangeText" FontWeight="SemiBold" Margin="0,0,0,14"/>
+                <TextBlock Text="Frames to export" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBlock Text="From frame" VerticalAlignment="Center"/>
+                    <TextBox x:Name="FromBox" Width="96" Height="28" Margin="8,0" TextChanged="Range_Changed"/>
+                    <TextBlock Text="to frame" VerticalAlignment="Center"/>
+                    <TextBox x:Name="ToBox" Width="96" Height="28" Margin="8,0" TextChanged="Range_Changed"/>
+                    <Button Content="Whole movie" Margin="4,0,0,0" Click="WholeMovie_Click"/>
+                </StackPanel>
+                <TextBlock x:Name="RangeText" Style="{StaticResource Subtle}" Margin="0,0,0,16" TextWrapping="Wrap"/>
 
                 <TextBlock Text="Save as" Margin="0,0,0,4"/>
                 <DockPanel Margin="0,0,0,14">

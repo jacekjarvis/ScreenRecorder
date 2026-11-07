@@ -122,7 +122,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type Button}">
-                    <Border x:Name="b" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                    <Border x:Name="b" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" CornerRadius="5" Margin="2,3">
                         <ContentPresenter VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
@@ -148,7 +148,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type Button}">
-                    <Border x:Name="b" Background="{TemplateBinding Background}" CornerRadius="2"
+                    <Border x:Name="b" Background="{TemplateBinding Background}" CornerRadius="6"
                             BorderBrush="Transparent" BorderThickness="1" Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
@@ -192,7 +192,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type Button}">
-                    <Border x:Name="b" Background="Transparent" CornerRadius="2">
+                    <Border x:Name="b" Background="Transparent" CornerRadius="5">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
@@ -220,7 +220,7 @@
                 <ControlTemplate TargetType="{x:Type CheckBox}">
                     <StackPanel Orientation="Horizontal" Background="Transparent">
                         <Border x:Name="box" Width="16" Height="16" Background="{StaticResource ControlBrush}"
-                                BorderBrush="#FF5A5A5A" BorderThickness="1" CornerRadius="2" VerticalAlignment="Center">
+                                BorderBrush="#FF5A5A5A" BorderThickness="1" CornerRadius="4" VerticalAlignment="Center">
                             <TextBlock x:Name="tick" Text="&#xE73E;" FontFamily="{StaticResource IconFont}" FontSize="11"
                                        Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
                         </Border>
@@ -284,7 +284,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type TextBox}">
                     <Border x:Name="b" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" Padding="{TemplateBinding Padding}">
+                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5" Padding="{TemplateBinding Padding}">
                         <ScrollViewer x:Name="PART_ContentHost" Focusable="False" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                       HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"/>
                     </Border>
@@ -307,7 +307,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ComboBoxItem}">
-                    <Border x:Name="b" Background="Transparent" Padding="{TemplateBinding Padding}">
+                    <Border x:Name="b" Background="Transparent" Padding="{TemplateBinding Padding}" CornerRadius="4" Margin="4,0">
                         <ContentPresenter/>
                     </Border>
                     <ControlTemplate.Triggers>
@@ -336,7 +336,7 @@
                                       IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
                             <ToggleButton.Template>
                                 <ControlTemplate TargetType="{x:Type ToggleButton}">
-                                    <Border x:Name="b" Background="{StaticResource ControlBrush}" BorderBrush="#FF4A4A4A" BorderThickness="1" CornerRadius="2">
+                                    <Border x:Name="b" Background="{StaticResource ControlBrush}" BorderBrush="#FF4A4A4A" BorderThickness="1" CornerRadius="5">
                                         <TextBlock Text="&#xE70D;" FontFamily="{StaticResource IconFont}" FontSize="10"
                                                    HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                     </Border>
@@ -353,7 +353,7 @@
                                           ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"/>
                         <Popup IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True"
                                Focusable="False" PopupAnimation="None">
-                            <Border Background="{StaticResource PanelBrush}" BorderBrush="#FF555555" BorderThickness="1"
+                            <Border Background="{StaticResource PanelBrush}" BorderBrush="#FF555555" BorderThickness="1" CornerRadius="6" Padding="0,4" Margin="0,2,0,0"
                                     MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
                                     MaxHeight="{TemplateBinding MaxDropDownHeight}">
                                 <ScrollViewer>
@@ -393,7 +393,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type TabItem}">
-                    <Border x:Name="b" Background="Transparent" Padding="14,7" BorderThickness="3,0,0,0" BorderBrush="Transparent">
+                    <Border x:Name="b" Background="Transparent" Padding="14,7" BorderThickness="3,0,0,0" BorderBrush="Transparent" CornerRadius="5" Margin="6,1">
                         <ContentPresenter ContentSource="Header"/>
                     </Border>
                     <ControlTemplate.Triggers>
@@ -416,8 +416,8 @@
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ProgressBar}">
                     <Grid>
-                        <Border x:Name="PART_Track" Background="{StaticResource ControlBrush}" CornerRadius="2"/>
-                        <Border x:Name="PART_Indicator" Background="{StaticResource AccentBrush}" CornerRadius="2" HorizontalAlignment="Left"/>
+                        <Border x:Name="PART_Track" Background="{StaticResource ControlBrush}" CornerRadius="4"/>
+                        <Border x:Name="PART_Indicator" Background="{StaticResource AccentBrush}" CornerRadius="4" HorizontalAlignment="Left"/>
                     </Grid>
                 </ControlTemplate>
             </Setter.Value>
@@ -442,7 +442,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ContextMenu}">
-                    <Border Background="{StaticResource PanelBrush}" BorderBrush="#FF555555" BorderThickness="1" Padding="0,4">
+                    <Border Background="{StaticResource PanelBrush}" BorderBrush="#FF555555" BorderThickness="1" Padding="0,4" CornerRadius="6">
                         <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
                     </Border>
                 </ControlTemplate>
@@ -459,7 +459,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type MenuItem}">
                     <Grid>
-                        <Border x:Name="b" Background="Transparent" Padding="10,5,16,5" MinHeight="26">
+                        <Border x:Name="b" Background="Transparent" Padding="10,5,16,5" MinHeight="26" CornerRadius="4" Margin="4,0">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition x:Name="checkCol" Width="22"/>
@@ -479,7 +479,7 @@
                         </Border>
                         <Popup x:Name="PART_Popup" IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}"
                                Placement="Right" AllowsTransparency="True" Focusable="False" PopupAnimation="None">
-                            <Border Background="{StaticResource PanelBrush}" BorderBrush="#FF555555" BorderThickness="1" Padding="0,4">
+                            <Border Background="{StaticResource PanelBrush}" BorderBrush="#FF555555" BorderThickness="1" Padding="0,4" CornerRadius="6">
                                 <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
                             </Border>
                         </Popup>

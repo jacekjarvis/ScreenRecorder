@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using ScreenRecorder.Core.Encoding;
 using ScreenRecorder.Core.Export;
 using ScreenRecorder.Core.Project;
@@ -17,26 +18,29 @@ public partial class ExportWindow : Window
 
     private readonly AppSettings _s;
     private readonly string _dir;
-    private readonly long _first;
-    private readonly long _last;
     private readonly ProjectManifest _m;
+    // The "movie" is what the Video Editor shows: the recording after any crop.
+    // Frame numbers in this window match the editor's (0 = first frame of the movie).
+    private readonly long _movieStart;
+    private readonly long _movieLength;
+    private string _autoOutput = "";
     private CancellationTokenSource? _cts;
     private bool _done;
 
-    public ExportWindow(AppSettings settings, string projectDir, long firstFrame, long? lastFrame)
+    /// <param name="selectionStart">Pre-fill "from frame" (e.g. the editor's selection); null = start of the movie.</param>
+    /// <param name="selectionEnd">Pre-fill "to frame"; null = end of the movie.</param>
+    public ExportWindow(AppSettings settings, string projectDir, long? selectionStart = null, long? selectionEnd = null)
     {
         InitializeComponent();
         _s = settings;
         _dir = projectDir;
         _m = ProjectManifest.Load(projectDir);
-        long total = Mp4Exporter.FrameCount(projectDir, _m);
-        _first = Math.Clamp(firstFrame, 0, Math.Max(0, total - 1));
-        _last = Math.Clamp(lastFrame ?? total - 1, _first, Math.Max(0, total - 1));
-        long count = _last - _first + 1;
-        bool trimmed = _first > 0 || _last < total - 1;
-        RangeText.Text = trimmed
-            ? $"Exporting frames {_first:N0}–{_last:N0} of the recording ({TimeSpan.FromSeconds(count / _m.Fps):hh\\:mm\\:ss})"
-            : $"Exporting the whole recording ({TimeSpan.FromSeconds(count / _m.Fps):hh\\:mm\\:ss}, {_m.Width}×{_m.Height})";
+        long total = Math.Max(1, Mp4Exporter.FrameCount(projectDir, _m));
+        var movie = _m.Trim is { } t && t.Start >= 0 && t.End < total && t.End >= t.Start ? t : new FrameRange(0, total - 1);
+        _movieStart = movie.Start;
+        _movieLength = movie.Count;
+        FromBox.Text = Math.Clamp(selectionStart ?? 0, 0, _movieLength - 1).ToString();
+        ToBox.Text = Math.Clamp(selectionEnd ?? _movieLength - 1, 0, _movieLength - 1).ToString();
 
         var videoOptions = new[]
         {
@@ -69,10 +73,7 @@ public partial class ExportWindow : Window
             UseHardware.Content = "Use the graphics card to encode (not available on this PC)";
         }
 
-        string folder = settings.LastExportFolder is { } f && Directory.Exists(f)
-            ? f : Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
-        string name = Path.GetFileName(projectDir) + (trimmed ? $" (frames {_first}-{_last})" : "");
-        OutputPath.Text = Path.Combine(folder, name + ".mp4");
+        Range_Changed(this, new RoutedEventArgs());
         Closing += (_, e) =>
         {
             if (_cts != null && !_done)
@@ -95,8 +96,55 @@ public partial class ExportWindow : Window
         if (dlg.ShowDialog(this) == true) OutputPath.Text = dlg.FileName;
     }
 
+    /// <summary>Reads "from frame X to frame Y" (movie frame numbers, as in the Video Editor).</summary>
+    private bool TryGetRange(out long from, out long to, out string? error)
+    {
+        error = null;
+        to = 0;
+        if (!long.TryParse(FromBox.Text.Trim().Replace(",", ""), out from) || !long.TryParse(ToBox.Text.Trim().Replace(",", ""), out to))
+            error = "Enter whole frame numbers.";
+        else if (from < 0 || to > _movieLength - 1)
+            error = $"Frames go from 0 to {_movieLength - 1:N0}.";
+        else if (from > to)
+            error = "The first frame must come before the last frame.";
+        return error == null;
+    }
+
+    private void Range_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_m == null || RangeText == null || OutputPath == null) return;
+        if (!TryGetRange(out long from, out long to, out string? error))
+        {
+            RangeText.Text = error;
+            RangeText.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xFF, 0x6B, 0x6B));
+            return;
+        }
+        RangeText.ClearValue(TextBlock.ForegroundProperty);
+        long count = to - from + 1;
+        bool whole = from == 0 && to == _movieLength - 1;
+        RangeText.Text = (whole ? "The whole movie" : $"{count:N0} of {_movieLength:N0} frames")
+                         + $"  ·  {TimeSpan.FromSeconds(count / _m.Fps):hh\\:mm\\:ss\\.ff}  ·  {_m.Width}×{_m.Height} at {_m.Fps:0} fps";
+
+        // Suggest a file name that shows the range, unless the user typed their own.
+        string folder = _s.LastExportFolder is { } f && Directory.Exists(f) ? f : Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
+        string suggested = Path.Combine(folder, Path.GetFileName(_dir) + (whole ? "" : $" (frames {from}-{to})") + ".mp4");
+        if (OutputPath.Text.Length == 0 || OutputPath.Text == _autoOutput) OutputPath.Text = suggested;
+        _autoOutput = suggested;
+    }
+
+    private void WholeMovie_Click(object sender, RoutedEventArgs e)
+    {
+        FromBox.Text = "0";
+        ToBox.Text = (_movieLength - 1).ToString();
+    }
+
     private async void Export_Click(object sender, RoutedEventArgs e)
     {
+        if (!TryGetRange(out long from, out long to, out string? rangeError))
+        {
+            Dialogs.Warn(rangeError!, "Export to MP4");
+            return;
+        }
         string output = OutputPath.Text.Trim();
         if (output.Length == 0) return;
         if (!output.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase)) output += ".mp4";
@@ -112,8 +160,8 @@ public partial class ExportWindow : Window
 
         var options = new ExportOptions
         {
-            StartFrame = _first,
-            EndFrame = _last,
+            StartFrame = _movieStart + from,
+            EndFrame = _movieStart + to,
             VideoQuality = vq,
             AudioQuality = aq,
             IncludeCursor = IncCursor.IsChecked == true,

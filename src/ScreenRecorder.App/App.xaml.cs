@@ -10,6 +10,7 @@ namespace ScreenRecorder.App;
 public partial class App : Application
 {
     public static new App Current => (App)Application.Current;
+    public const string ProductName = "Jarvo Screen Recorder";
 
     private Mutex? _singleInstance;
     private AppSettings _settings = null!;
@@ -29,10 +30,18 @@ public partial class App : Application
         DispatcherUnhandledException += OnUnhandled;
         AppDomain.CurrentDomain.UnhandledException += (_, args) => LogError(args.ExceptionObject as Exception);
 
-        _singleInstance = new Mutex(true, "ScreenRecorder.SingleInstance", out bool first);
+        // Rounded corners (Windows 11) for every window as it opens.
+        EventManager.RegisterClassHandler(typeof(Window), FrameworkElement.LoadedEvent,
+            new RoutedEventHandler((s, _) => WindowCorners.Apply((Window)s)));
+
+        bool devMode = e.Args.Length >= 2 && e.Args[0] is "--selftest" or "--snapshot";
+        bool first = true;
+        if (!devMode) _singleInstance = new Mutex(true, "ScreenRecorder.SingleInstance", out first);
         if (!first)
         {
-            Dialogs.Info("ScreenRecorder is already running — look for its icon in the notification area.");
+            // Already running: pass on the request (open a recording, or just show the Recorder).
+            if (devMode || !InstanceChannel.Send(e.Args.Length > 0 ? e.Args[0] : InstanceChannel.ShowMessage))
+                Dialogs.Info($"{ProductName} is already running — look for its icon in the notification area.");
             Shutdown();
             return;
         }
@@ -62,15 +71,23 @@ public partial class App : Application
         _hotkeys = new Hotkeys();
         RegisterHotkeys();
         _ = Task.Run(() => { try { _ = Core.Encoding.FFmpeg.BestEncoder; } catch { } }); // warm up encoder detection
+        _ = Task.Run(FileAssociation.Register);
+        InstanceChannel.Listen(message => Dispatcher.BeginInvoke(() => OpenFromOutside(message)));
 
-        // "ScreenRecorder.exe <recording folder>" opens straight into the Video Editor.
-        if (e.Args.Length > 0 && Directory.Exists(e.Args[0]))
+        // Double-clicking a .jsrec (or "JarvoScreenRecorder.exe <recording>") opens straight into the Video Editor.
+        if (e.Args.Length > 0 && Core.Project.ProjectManifest.ResolveDirectory(e.Args[0]) is { } dir)
         {
-            OpenPlayer(e.Args[0]);
+            OpenPlayer(dir);
             return;
         }
         _recorder = new RecorderWindow(_controller);
         _recorder.Show();
+    }
+
+    private void OpenFromOutside(string message)
+    {
+        if (Core.Project.ProjectManifest.ResolveDirectory(message) is { } dir) OpenPlayer(dir);
+        else RestoreRecorder();
     }
 
     // ---------------- recorder window / minimizing ----------------
@@ -126,7 +143,7 @@ public partial class App : Application
         _player.Show();
         if (_player.WindowState == WindowState.Minimized) _player.WindowState = WindowState.Normal;
         _player.Activate();
-        if (projectDir != null && File.Exists(Path.Combine(projectDir, Core.Project.ProjectManifest.FileName)))
+        if (projectDir != null && Core.Project.ProjectManifest.Exists(projectDir))
             _player.Open(projectDir);
     }
 
@@ -151,8 +168,8 @@ public partial class App : Application
         "Help");
 
     public void ShowAbout() => Dialogs.Info(
-        $"ScreenRecorder {typeof(App).Assembly.GetName().Version?.ToString(3)}\n\nRecordings: {_settings.OutputFolder}\nVideo encoder: {(Core.Encoding.FFmpeg.IsAvailable ? Core.Encoding.FFmpeg.BestEncoder.ToString() : "FFmpeg not found")}",
-        "About ScreenRecorder");
+        $"{ProductName} {typeof(App).Assembly.GetName().Version?.ToString(3)}\n\nRecordings: {_settings.OutputFolder}\nVideo encoder: {(Core.Encoding.FFmpeg.IsAvailable ? Core.Encoding.FFmpeg.BestEncoder.ToString() : "FFmpeg not found")}",
+        $"About {ProductName}");
 
     // ---------------- hotkeys ----------------
 

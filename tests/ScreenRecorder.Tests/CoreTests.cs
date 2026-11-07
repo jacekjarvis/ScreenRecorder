@@ -84,6 +84,43 @@ public class PngTests
     }
 }
 
+public class RecordingFileTests
+{
+    [Fact]
+    public void Saves_as_jsrec_named_after_the_folder_and_reopens_from_the_file()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "sr-test " + Guid.NewGuid().ToString("N")[..6]);
+        Directory.CreateDirectory(dir);
+        try
+        {
+            new ProjectManifest { Width = 640, Height = 480, Fps = 30, Trim = new FrameRange(10, 20) }.Save(dir);
+            string file = Path.Combine(dir, Path.GetFileName(dir) + ProjectManifest.Extension);
+            Assert.True(File.Exists(file));
+            Assert.Equal(dir, ProjectManifest.ResolveDirectory(file));
+            Assert.Equal(dir, ProjectManifest.ResolveDirectory(dir));
+            Assert.Equal(new FrameRange(10, 20), ProjectManifest.Load(dir).Trim);
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [Fact]
+    public void Old_project_json_still_opens_and_is_upgraded_on_save()
+    {
+        string dir = Directory.CreateTempSubdirectory("sr-legacy").FullName;
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, ProjectManifest.LegacyFileName), "{\"width\":800,\"height\":600,\"fps\":25}");
+            var m = ProjectManifest.Load(dir);
+            Assert.Equal(800, m.Width);
+            m.Save(dir);
+            Assert.False(File.Exists(Path.Combine(dir, ProjectManifest.LegacyFileName)));
+            Assert.Single(Directory.GetFiles(dir, "*" + ProjectManifest.Extension));
+            Assert.Null(ProjectManifest.ResolveDirectory(Path.Combine(dir, "nothing.txt")));
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+}
+
 public class PixelRectTests
 {
     [Fact]
