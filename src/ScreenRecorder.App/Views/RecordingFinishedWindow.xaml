@@ -1,0 +1,30 @@
+<Window x:Class="ScreenRecorder.App.Views.RecordingFinishedWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="clr-namespace:ScreenRecorder.App.Views"
+        Title="Recording finished" Style="{StaticResource DarkWindow}" Width="580" SizeToContent="Height"
+        ResizeMode="NoResize" WindowStartupLocation="CenterScreen" Topmost="True">
+    <Border BorderBrush="{StaticResource SeparatorBrush}" BorderThickness="1">
+        <StackPanel>
+            <v:TitleBar x:Name="Bar" Title="Recording finished" CanMinimize="False"/>
+            <StackPanel Margin="20,12,20,8">
+                <TextBlock x:Name="Reason" Foreground="#FFF0A020" TextWrapping="Wrap" Margin="0,0,0,10" Visibility="Collapsed"/>
+                <TextBlock x:Name="Summary" FontSize="15" FontWeight="SemiBold"/>
+                <TextBlock x:Name="Details" Style="{StaticResource Subtle}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                <TextBlock x:Name="Warnings" Foreground="#FFF0A020" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="Collapsed"/>
+            </StackPanel>
+            <Border Background="{StaticResource BandBrush}" Padding="12,10" Margin="0,10,0,0">
+                <DockPanel>
+                    <Button DockPanel.Dock="Left" Click="Discard_Click" ToolTip="Delete this recording">
+                        <TextBlock Text="Discard"/>
+                    </Button>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Click="Folder_Click"><TextBlock Text="Open folder"/></Button>
+                        <Button Margin="8,0,0,0" Click="Export_Click"><TextBlock Text="Export to MP4…"/></Button>
+                        <Button Margin="8,0,0,0" IsDefault="True" Click="Open_Click"><TextBlock Text="Open in Video Editor"/></Button>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+        </StackPanel>
+    </Border>
+</Window>

@@ -1,0 +1,285 @@
+using System.Diagnostics;
+using System.IO;
+using System.Windows;
+using System.Windows.Controls;
+using ScreenRecorder.App.Services;
+using ScreenRecorder.Core.Interop;
+
+namespace ScreenRecorder.App.Views;
+
+/// <summary>The Recorder main window — same layout as FlashBack's: Area, Microphone, PC Sounds, Webcam, Record.</summary>
+public partial class RecorderWindow : Window
+{
+    private sealed record AreaItem(string Label, AreaKind Kind, string? Device)
+    {
+        public override string ToString() => Label;
+    }
+
+    private readonly RecorderController _c;
+    private bool _loading;
+    private bool _picking;
+
+    private AppSettings S => _c.Settings;
+
+    public RecorderWindow(RecorderController controller)
+    {
+        InitializeComponent();
+        _c = controller;
+        Bar.MinimizeRequested += (_, _) => App.Current.MinimizeRecorder();
+        _c.StateChanged += UpdateState;
+        _c.Tick += UpdateTick;
+        Loaded += (_, _) => { LoadOptions(); UpdateState(); };
+        Closing += async (_, e) =>
+        {
+            if (!ExitOnClose) { CloseFrame(); return; }
+            if (_c.IsBusy && !Dialogs.Confirm("A recording is in progress. Stop it and exit?", "Exit ScreenRecorder", "Stop and exit", "Cancel"))
+            {
+                e.Cancel = true;
+                return;
+            }
+            CloseFrame();
+            await App.Current.ExitAsync();
+        };
+    }
+
+    /// <summary>Closing the Recorder exits the app (as in FlashBack); off only for UI snapshots.</summary>
+    public bool ExitOnClose { get; set; } = true;
+
+    private void LoadOptions()
+    {
+        _loading = true;
+        var items = new List<AreaItem>();
+        var monitors = Displays.GetMonitors();
+        if (monitors.Count <= 1) items.Add(new AreaItem("Full screen", AreaKind.FullScreen, monitors.FirstOrDefault()?.DeviceName));
+        else
+        {
+            int n = 1;
+            foreach (var m in monitors)
+                items.Add(new AreaItem($"Full screen — monitor {n++}{(m.IsPrimary ? " (main)" : "")}", AreaKind.FullScreen, m.DeviceName));
+            items.Add(new AreaItem("All monitors", AreaKind.AllMonitors, null));
+        }
+        items.Add(new AreaItem("Window", AreaKind.Window, null));
+        items.Add(new AreaItem("Region", AreaKind.Region, null));
+        AreaCombo.ItemsSource = items;
+        AreaCombo.SelectedItem = items.FirstOrDefault(i => i.Kind == S.Area && (i.Kind != AreaKind.FullScreen || i.Device == S.MonitorDevice))
+                                 ?? items.FirstOrDefault(i => i.Kind == S.Area && S.Area != AreaKind.Window)
+                                 ?? items[0];
+        MicCheck.IsChecked = S.RecordMicrophone;
+        PcCheck.IsChecked = S.RecordPcSounds;
+        CamCheck.IsChecked = S.RecordWebcam;
+        _loading = false;
+        // A previously chosen region comes back as the red frame.
+        if (S.Area == AreaKind.Region) ShowRegionFrame();
+        UpdateAreaDetail();
+    }
+
+    private void Options_Changed(object sender, RoutedEventArgs e)
+    {
+        S.RecordMicrophone = MicCheck.IsChecked == true;
+        S.RecordPcSounds = PcCheck.IsChecked == true;
+        S.RecordWebcam = CamCheck.IsChecked == true;
+        S.Save();
+    }
+
+    private async void Area_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading || AreaCombo.SelectedItem is not AreaItem item) return;
+        S.Area = item.Kind;
+        S.MonitorDevice = item.Device ?? S.MonitorDevice;
+        S.Save();
+        CloseFrame();
+        if (item.Kind == AreaKind.Region) ShowRegionFrame();
+        if (item.Kind == AreaKind.Window) await PickWindowAsync();
+        UpdateAreaDetail();
+    }
+
+    /// <summary>"When prompted, click the window you want to record — a red frame will appear around it."</summary>
+    private async Task PickWindowAsync()
+    {
+        if (_picking) return;
+        _picking = true;
+        var hint = new PickHintWindow("Click the window you want to record.   Esc to cancel.");
+        hint.Show();
+        try
+        {
+            IntPtr hwnd = await WindowPicker.PickAsync();
+            var ownHandle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+            if (hwnd == IntPtr.Zero || hwnd == ownHandle || hwnd == Native.GetShellWindow())
+            {
+                _c.PickedWindow = null;
+            }
+            else
+            {
+                string title = Displays.GetWindows().FirstOrDefault(w => w.Handle == hwnd)?.Title ?? "Selected window";
+                _c.PickedWindow = new WindowInfo(hwnd, title, 0);
+                var frame = new RegionFrameWindow(Displays.GetWindowBounds(hwnd), locked: true);
+                _c.RegionFrame = frame;
+                frame.Show();
+            }
+        }
+        finally
+        {
+            hint.Close();
+            _picking = false;
+            Activate();
+            UpdateAreaDetail();
+        }
+    }
+
+    private void ShowRegionFrame()
+    {
+        CloseFrame();
+        var primary = Displays.GetMonitors()[0].Bounds;
+        var r = S.LastRegion is { IsEmpty: false } last && !Displays.VirtualScreen.Intersect(last).IsEmpty
+            ? last
+            : new PixelRect(primary.X + primary.Width / 6, primary.Y + primary.Height / 6, primary.Width * 2 / 3, primary.Height * 2 / 3);
+        var frame = new RegionFrameWindow(r, locked: false);
+        frame.RegionChanged += UpdateAreaDetail;
+        _c.RegionFrame = frame;
+        frame.Show();
+    }
+
+    private void CloseFrame()
+    {
+        if (_c.RegionFrame != null)
+        {
+            if (S.Area == AreaKind.Region) S.LastRegion = _c.RegionFrame.RegionPixels;
+            _c.RegionFrame.Close();
+            _c.RegionFrame = null;
+        }
+    }
+
+    private void UpdateAreaDetail()
+    {
+        string? text = S.Area switch
+        {
+            AreaKind.Window => _c.PickedWindow is { } w ? $"Window: {w.Title}" : "No window chosen — pick Window again and click a window",
+            AreaKind.Region => _c.RegionFrame is { } f ? $"Region: {f.RegionPixels.ToEvenSize()}  (move or resize the red frame)" : null,
+            _ => null,
+        };
+        AreaDetail.Text = text ?? "";
+        AreaDetail.Visibility = text == null ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    // ---------------- recording ----------------
+
+    private async void Record_Click(object sender, RoutedEventArgs e)
+    {
+        if (_c.State is RecorderState.Recording or RecorderState.Paused) { await _c.StopAsync(); return; }
+        if (S.Area == AreaKind.Region && _c.RegionFrame != null) S.LastRegion = _c.RegionFrame.RegionPixels;
+        await _c.RecordAsync();
+        if (_c.State is RecorderState.Recording && S.MinimizeWhileRecording) App.Current.MinimizeRecorder();
+    }
+
+    private void Pause_Click(object sender, RoutedEventArgs e) => _c.TogglePause();
+
+    private void UpdateState()
+    {
+        bool recording = _c.State is RecorderState.Recording or RecorderState.Paused;
+        RecordText.Text = _c.State switch
+        {
+            RecorderState.Scheduled => "Cancel",
+            RecorderState.Starting => "Starting…",
+            RecorderState.Stopping => "Saving…",
+            _ when recording => "Stop",
+            _ => "Record",
+        };
+        RecordDot.Visibility = recording ? Visibility.Collapsed : Visibility.Visible;
+        StopSquare.Visibility = recording ? Visibility.Visible : Visibility.Collapsed;
+        RecordButton.IsEnabled = _c.State is not (RecorderState.Starting or RecorderState.Stopping);
+        PauseButton.Visibility = recording ? Visibility.Visible : Visibility.Collapsed;
+        PauseGlyph.Text = _c.State == RecorderState.Paused ? "" : "";
+        AreaCombo.IsEnabled = MicCheck.IsEnabled = PcCheck.IsEnabled = CamCheck.IsEnabled = !_c.IsBusy;
+        MicLevel.Visibility = recording && S.RecordMicrophone ? Visibility.Visible : Visibility.Hidden;
+        PcLevel.Visibility = recording && S.RecordPcSounds ? Visibility.Visible : Visibility.Hidden;
+        TimerText.Text = S.ScheduleEnabled || _c.State == RecorderState.Scheduled ? "Set Timer •" : "Set Timer";
+        Bar.Title = _c.State switch
+        {
+            RecorderState.Recording => "ScreenRecorder — recording",
+            RecorderState.Paused => "ScreenRecorder — paused",
+            RecorderState.Scheduled => "ScreenRecorder — waiting for scheduled start",
+            _ => "ScreenRecorder",
+        };
+        UpdateTick();
+    }
+
+    private void UpdateTick()
+    {
+        if (_c.State == RecorderState.Scheduled)
+        {
+            var wait = S.ScheduleStart - DateTime.Now;
+            StatusText.Text = "Scheduled";
+            ElapsedText.Text = wait > TimeSpan.Zero ? $"in {wait:hh\\:mm\\:ss}" : "";
+            return;
+        }
+        if (_c.Session is { } s && _c.State is RecorderState.Recording or RecorderState.Paused)
+        {
+            ElapsedText.Text = _c.Elapsed.ToString(@"hh\:mm\:ss");
+            StatusText.Text = _c.State == RecorderState.Paused ? "Paused" : $"{_c.SizeBytes / (1024.0 * 1024):0} MB";
+            MicLevel.Value = s.MicrophoneLevel;
+            PcLevel.Value = s.PcSoundsLevel;
+        }
+        else
+        {
+            ElapsedText.Text = "";
+            StatusText.Text = "";
+        }
+    }
+
+    // ---------------- menu band ----------------
+
+    private void Recordings_Click(object sender, RoutedEventArgs e)
+    {
+        var menu = new ContextMenu { PlacementTarget = RecordingsButton, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
+        menu.Items.Add(MenuItem("Open recording in Video Editor…", () => App.Current.OpenPlayer(null)));
+        menu.Items.Add(MenuItem("Open recordings folder", () =>
+        {
+            Directory.CreateDirectory(S.OutputFolder);
+            Process.Start(new ProcessStartInfo(S.OutputFolder) { UseShellExecute = true });
+        }));
+        var recent = S.RecentRecordings.Where(Directory.Exists).ToList();
+        if (recent.Count > 0)
+        {
+            menu.Items.Add(new Separator { Margin = new Thickness(0, 4, 0, 4) });
+            foreach (var dir in recent)
+                menu.Items.Add(MenuItem(Path.GetFileName(dir), () => App.Current.OpenPlayer(dir)));
+        }
+        menu.IsOpen = true;
+    }
+
+    private void Help_Click(object sender, RoutedEventArgs e)
+    {
+        var menu = new ContextMenu { PlacementTarget = HelpButton, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
+        menu.Items.Add(MenuItem("Help", () => Dialogs.Info(
+            "1. Choose the Area: full screen, a window (click it), or a region (move and resize the red frame).\n" +
+            "2. Tick Microphone, PC Sounds and Webcam as needed.\n" +
+            "3. Press Record. Press Stop (or the Start/Stop hotkey) when done.\n" +
+            "4. Open the recording in the Video Editor to trim it and export an MP4.\n\n" +
+            $"Hotkeys:\n  Start / stop: {S.HotkeyStartStop}\n  Pause / resume: {S.HotkeyPause}\n  Recording controls: {S.HotkeyControls}\n  Add marker: {S.HotkeyMarker}",
+            "Help")));
+        menu.Items.Add(MenuItem("About", () => Dialogs.Info(
+            $"ScreenRecorder {typeof(App).Assembly.GetName().Version?.ToString(3)}\n\nRecordings: {S.OutputFolder}\nVideo encoder: {(Core.Encoding.FFmpeg.IsAvailable ? Core.Encoding.FFmpeg.BestEncoder.ToString() : "FFmpeg not found")}",
+            "About ScreenRecorder")));
+        menu.IsOpen = true;
+    }
+
+    private void SetTimer_Click(object sender, RoutedEventArgs e)
+    {
+        new TimerWindow(S) { Owner = this }.ShowDialog();
+        UpdateState();
+    }
+
+    private void Settings_Click(object sender, RoutedEventArgs e) => App.Current.OpenSettings(this);
+
+    private void VideoEditor_Click(object sender, RoutedEventArgs e) => App.Current.OpenPlayer(S.RecentRecordings.FirstOrDefault(Directory.Exists));
+
+    private static MenuItem MenuItem(string header, Action action)
+    {
+        var item = new MenuItem { Header = header };
+        item.Click += (_, _) => action();
+        return item;
+    }
+
+    /// <summary>Called after Settings closes so the main window reflects any changes.</summary>
+    public void Reload() => LoadOptions();
+}

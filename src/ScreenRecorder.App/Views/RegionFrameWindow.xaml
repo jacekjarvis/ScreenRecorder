@@ -1,0 +1,45 @@
+<Window x:Class="ScreenRecorder.App.Views.RegionFrameWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent" ResizeMode="NoResize"
+        Topmost="True" ShowInTaskbar="False" FontFamily="Segoe UI" FontSize="12">
+    <Window.Resources>
+        <Style x:Key="Grip" TargetType="{x:Type Thumb}">
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Height" Value="10"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Thumb}">
+                        <Border Background="{StaticResource RecordBrush}" BorderBrush="White" BorderThickness="1"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <Grid>
+        <Border x:Name="Frame" BorderBrush="{StaticResource RecordBrush}" BorderThickness="3"/>
+        <Grid x:Name="Handles">
+            <!-- Move tab with the size readout -->
+            <Thumb x:Name="MoveTab" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="3,3,0,0" Cursor="SizeAll" DragDelta="Move_Drag">
+                <Thumb.Template>
+                    <ControlTemplate TargetType="{x:Type Thumb}">
+                        <Border Background="{StaticResource RecordBrush}" Padding="8,3">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE7C2;" FontFamily="{StaticResource IconFont}" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBlock x:Name="SizeText" Foreground="White" Text="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}"/>
+                            </StackPanel>
+                        </Border>
+                    </ControlTemplate>
+                </Thumb.Template>
+            </Thumb>
+            <Thumb Style="{StaticResource Grip}" HorizontalAlignment="Left" VerticalAlignment="Top" Cursor="SizeNWSE" Tag="nw" DragDelta="Resize_Drag"/>
+            <Thumb Style="{StaticResource Grip}" HorizontalAlignment="Center" VerticalAlignment="Top" Cursor="SizeNS" Tag="n" DragDelta="Resize_Drag"/>
+            <Thumb Style="{StaticResource Grip}" HorizontalAlignment="Right" VerticalAlignment="Top" Cursor="SizeNESW" Tag="ne" DragDelta="Resize_Drag"/>
+            <Thumb Style="{StaticResource Grip}" HorizontalAlignment="Left" VerticalAlignment="Center" Cursor="SizeWE" Tag="w" DragDelta="Resize_Drag"/>
+            <Thumb Style="{StaticResource Grip}" HorizontalAlignment="Right" VerticalAlignment="Center" Cursor="SizeWE" Tag="e" DragDelta="Resize_Drag"/>
+            <Thumb Style="{StaticResource Grip}" HorizontalAlignment="Left" VerticalAlignment="Bottom" Cursor="SizeNESW" Tag="sw" DragDelta="Resize_Drag"/>
+            <Thumb Style="{StaticResource Grip}" HorizontalAlignment="Center" VerticalAlignment="Bottom" Cursor="SizeNS" Tag="s" DragDelta="Resize_Drag"/>
+            <Thumb Style="{StaticResource Grip}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Cursor="SizeNWSE" Tag="se" DragDelta="Resize_Drag"/>
+        </Grid>
+    </Grid>
+</Window>

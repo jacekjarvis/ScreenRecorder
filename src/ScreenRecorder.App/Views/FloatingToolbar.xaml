@@ -1,0 +1,28 @@
+<Window x:Class="ScreenRecorder.App.Views.FloatingToolbar"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None" ResizeMode="NoResize" SizeToContent="WidthAndHeight" Topmost="True" ShowInTaskbar="False"
+        Background="{StaticResource AccentDarkBrush}" FontFamily="Segoe UI">
+    <Border BorderBrush="{StaticResource AccentBrush}" BorderThickness="1" Padding="2">
+        <StackPanel Orientation="Horizontal">
+            <!-- Drag handle (the app logo), as in FlashBack's floating controls -->
+            <Border x:Name="Handle" Width="26" Height="26" Background="Transparent" Cursor="SizeAll" ToolTip="Drag to move"
+                    MouseLeftButtonDown="Handle_Down">
+                <Image Source="{StaticResource AppIcon}" Width="16" Height="16"/>
+            </Border>
+            <Button x:Name="RecordButton" Style="{StaticResource ToolButton}" Width="28" Height="26" Click="Record_Click" ToolTip="Record">
+                <Ellipse Width="11" Height="11" Fill="{StaticResource RecordBrush}"/>
+            </Button>
+            <Button x:Name="StopButton" Style="{StaticResource ToolButton}" Width="28" Height="26" Click="Stop_Click" ToolTip="Stop">
+                <Rectangle Width="10" Height="10" Fill="#FFDDDDDD"/>
+            </Button>
+            <Button x:Name="PauseButton" Style="{StaticResource ToolButton}" Width="28" Height="26" Click="Pause_Click" ToolTip="Pause / resume">
+                <TextBlock x:Name="PauseGlyph" Text="&#xE769;" Style="{StaticResource Icon}" FontSize="12"/>
+            </Button>
+            <TextBlock x:Name="TimeText" FontFamily="Consolas" FontSize="12" VerticalAlignment="Center" Margin="4,0,6,0" Foreground="White"/>
+            <Button x:Name="MenuButton" Style="{StaticResource ToolButton}" Width="24" Height="26" Click="Menu_Click" ToolTip="Menu">
+                <TextBlock Text="&#xE70D;" Style="{StaticResource Icon}" FontSize="10"/>
+            </Button>
+        </StackPanel>
+    </Border>
+</Window>

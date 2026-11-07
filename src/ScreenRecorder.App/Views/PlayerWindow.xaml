@@ -1,0 +1,134 @@
+<Window x:Class="ScreenRecorder.App.Views.PlayerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="clr-namespace:ScreenRecorder.App.Views"
+        Title="ScreenRecorder Video Editor" Style="{StaticResource DarkWindow}" Width="1100" Height="760"
+        MinWidth="760" MinHeight="520" WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <Style x:Key="ToolSeparator" TargetType="{x:Type Border}">
+            <Setter Property="Width" Value="1"/>
+            <Setter Property="Margin" Value="8,6"/>
+            <Setter Property="Background" Value="{StaticResource SeparatorBrush}"/>
+        </Style>
+    </Window.Resources>
+    <Border BorderBrush="{StaticResource SeparatorBrush}" BorderThickness="1">
+        <DockPanel>
+            <v:TitleBar x:Name="Bar" DockPanel.Dock="Top" Title="ScreenRecorder Video Editor"/>
+
+            <!-- Menu -->
+            <Menu DockPanel.Dock="Top" Background="{StaticResource WindowBrush}" Padding="4,0">
+                <MenuItem Header="_File">
+                    <MenuItem Header="_Open recording…" InputGestureText="Ctrl+O" Click="Open_Click"/>
+                    <MenuItem Header="_Export to MP4…" InputGestureText="Ctrl+E" Click="Export_Click"/>
+                    <MenuItem Header="Save _screenshot of this frame…" Click="Screenshot_Click"/>
+                    <Separator Margin="0,4"/>
+                    <MenuItem Header="Show recording in folder" Click="ShowFolder_Click"/>
+                    <Separator Margin="0,4"/>
+                    <MenuItem Header="E_xit" Click="Exit_Click"/>
+                </MenuItem>
+                <MenuItem Header="_Edit">
+                    <MenuItem x:Name="UndoMenu" Header="_Undo" InputGestureText="Ctrl+Z" Click="Undo_Click"/>
+                    <MenuItem x:Name="RedoMenu" Header="_Redo" InputGestureText="Ctrl+Y" Click="Redo_Click"/>
+                    <Separator Margin="0,4"/>
+                    <MenuItem Header="Set selection _start here" InputGestureText="[" Click="SetStart_Click"/>
+                    <MenuItem Header="Set selection _end here" InputGestureText="]" Click="SetEnd_Click"/>
+                    <MenuItem Header="Select _all" InputGestureText="Ctrl+A" Click="SelectAll_Click"/>
+                    <MenuItem Header="Select _none" Click="SelectNone_Click"/>
+                    <Separator Margin="0,4"/>
+                    <MenuItem Header="_Crop movie to selected frames" Click="Crop_Click"/>
+                    <MenuItem Header="_Delete selected frames" InputGestureText="Del" Click="Delete_Click"/>
+                    <MenuItem Header="Restore the _full recording" Click="RestoreAll_Click"/>
+                </MenuItem>
+                <MenuItem Header="_Movie">
+                    <MenuItem Header="_Play / pause" InputGestureText="Space" Click="Play_Click"/>
+                    <MenuItem Header="Go to _start" InputGestureText="Home" Click="First_Click"/>
+                    <MenuItem Header="Go to _end" InputGestureText="End" Click="Last_Click"/>
+                    <MenuItem Header="_Go to frame…" InputGestureText="Ctrl+G" Click="GoTo_Click"/>
+                    <MenuItem x:Name="MarkersMenu" Header="_Markers"/>
+                </MenuItem>
+                <MenuItem Header="_Help">
+                    <MenuItem Header="How to trim and export" Click="Help_Click"/>
+                </MenuItem>
+            </Menu>
+
+            <!-- Status bar -->
+            <Border DockPanel.Dock="Bottom" Background="{StaticResource BandBrush}" Height="28">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="200"/>
+                        <ColumnDefinition Width="180"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="StatusMessage" Style="{StaticResource Subtle}" Margin="10,0" TextTrimming="CharacterEllipsis"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,16,0" VerticalAlignment="Center">
+                        <TextBlock Text="Selected frames" Style="{StaticResource Subtle}" Margin="0,0,6,0"/>
+                        <TextBox x:Name="SelStartBox" Width="70" Height="22" Padding="3,0" KeyDown="SelBox_KeyDown" LostFocus="SelBox_LostFocus"/>
+                        <TextBlock Text="to" Style="{StaticResource Subtle}" Margin="6,0"/>
+                        <TextBox x:Name="SelEndBox" Width="70" Height="22" Padding="3,0" KeyDown="SelBox_KeyDown" LostFocus="SelBox_LostFocus"/>
+                    </StackPanel>
+                    <TextBlock x:Name="FrameText" Grid.Column="2" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="LengthText" Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
+
+            <!-- Central toolbar -->
+            <Border DockPanel.Dock="Bottom" Background="{StaticResource PanelBrush}" Height="38" BorderBrush="{StaticResource SeparatorBrush}" BorderThickness="0,1,0,1">
+                <StackPanel Orientation="Horizontal" Margin="6,0">
+                    <Button Style="{StaticResource ToolButton}" Width="Auto" Padding="8,0" Click="Export_Click" ToolTip="Export to MP4 (Ctrl+E)">
+                        <StackPanel Orientation="Horizontal" Margin="6,0">
+                            <TextBlock Text="&#xE898;" Style="{StaticResource Icon}"/>
+                            <TextBlock Text="Export MP4" FontFamily="Segoe UI" FontSize="13" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ToolButton}" Content="&#xE722;" Click="Screenshot_Click" ToolTip="Save a screenshot of this frame (PNG)"/>
+                    <Border Style="{StaticResource ToolSeparator}"/>
+                    <Button x:Name="UndoButton" Style="{StaticResource ToolButton}" Content="&#xE7A7;" Click="Undo_Click" ToolTip="Undo (Ctrl+Z)"/>
+                    <Button x:Name="RedoButton" Style="{StaticResource ToolButton}" Content="&#xE7A6;" Click="Redo_Click" ToolTip="Redo (Ctrl+Y)"/>
+                    <Border Style="{StaticResource ToolSeparator}"/>
+                    <Button Style="{StaticResource ToolButton}" Width="Auto" Click="SetStart_Click" ToolTip="Set the selection start at the current frame ([)">
+                        <TextBlock Text="[ Start" FontFamily="Segoe UI" FontSize="13" Margin="8,0"/>
+                    </Button>
+                    <Button Style="{StaticResource ToolButton}" Width="Auto" Click="SetEnd_Click" ToolTip="Set the selection end at the current frame (])">
+                        <TextBlock Text="End ]" FontFamily="Segoe UI" FontSize="13" Margin="8,0"/>
+                    </Button>
+                    <Border Style="{StaticResource ToolSeparator}"/>
+                    <Button x:Name="DeleteButton" Style="{StaticResource ToolButton}" Content="&#xE74D;" Click="Delete_Click" ToolTip="Delete the selected frames (Del)"/>
+                    <Button x:Name="CropButton" Style="{StaticResource ToolButton}" Width="Auto" Click="Crop_Click" ToolTip="Crop the movie down to the selected frames">
+                        <StackPanel Orientation="Horizontal" Margin="6,0">
+                            <TextBlock Text="&#xE8C6;" Style="{StaticResource Icon}"/>
+                            <TextBlock Text="Crop to selection" FontFamily="Segoe UI" FontSize="13" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+
+            <!-- Playback controls + timeline -->
+            <Border DockPanel.Dock="Bottom" Background="{StaticResource WindowBrush}" Padding="6,4">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="PlayButton" Style="{StaticResource ToolButton}" Content="&#xE768;" FontSize="17" Click="Play_Click" ToolTip="Play / pause (Space)"/>
+                        <Border Style="{StaticResource ToolSeparator}"/>
+                        <Button Style="{StaticResource ToolButton}" Content="&#xE892;" Click="First_Click" ToolTip="Go to start (Home)"/>
+                        <Button Style="{StaticResource ToolButton}" Content="&#xE893;" Click="Last_Click" ToolTip="Go to end (End)"/>
+                        <Border Style="{StaticResource ToolSeparator}"/>
+                        <Button Style="{StaticResource ToolButton}" Content="&#xE76B;" Click="PrevFrame_Click" ToolTip="Previous frame (Left arrow; Shift = 1 second)"/>
+                        <Button Style="{StaticResource ToolButton}" Content="&#xE76C;" Click="NextFrame_Click" ToolTip="Next frame (Right arrow; Shift = 1 second)"/>
+                    </StackPanel>
+                    <TextBlock x:Name="LengthClock" DockPanel.Dock="Right" FontFamily="Consolas" VerticalAlignment="Center" Margin="10,0,6,0"/>
+                    <TextBlock x:Name="TimeClock" DockPanel.Dock="Left" FontFamily="Consolas" VerticalAlignment="Center" Margin="14,0,4,0"/>
+                    <v:Timeline x:Name="TimelineBar"/>
+                </DockPanel>
+            </Border>
+
+            <!-- Movie area -->
+            <Grid Background="#FF161616" x:Name="MovieArea" AllowDrop="True" Drop="Movie_Drop">
+                <Image x:Name="MovieImage" Stretch="Uniform" Margin="8" RenderOptions.BitmapScalingMode="HighQuality"/>
+                <StackPanel x:Name="EmptyHint" VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock Text="&#xE714;" Style="{StaticResource Icon}" FontSize="48" Foreground="{StaticResource SubtleTextBrush}"/>
+                    <TextBlock Text="Open a recording (File → Open), or drop its folder here" Style="{StaticResource Subtle}" Margin="0,12,0,0"/>
+                </StackPanel>
+            </Grid>
+        </DockPanel>
+    </Border>
+</Window>

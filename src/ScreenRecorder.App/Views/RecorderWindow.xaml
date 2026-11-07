@@ -1,0 +1,105 @@
+<Window x:Class="ScreenRecorder.App.Views.RecorderWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="clr-namespace:ScreenRecorder.App.Views"
+        Title="ScreenRecorder" Style="{StaticResource DarkWindow}"
+        Width="520" SizeToContent="Height" ResizeMode="CanMinimize" WindowStartupLocation="CenterScreen">
+    <Border BorderBrush="{StaticResource SeparatorBrush}" BorderThickness="1">
+        <StackPanel>
+            <v:TitleBar x:Name="Bar" Title="ScreenRecorder"/>
+
+            <!-- Menu band: Recordings · Set Timer · Settings · Help ▾  ……  Video Editor -->
+            <DockPanel Background="{StaticResource BandBrush}">
+                <Button DockPanel.Dock="Right" Style="{StaticResource BandButton}" Background="#FF4A4A4A" Click="VideoEditor_Click" Padding="14,0">
+                    <TextBlock Text="Video Editor"/>
+                </Button>
+                <StackPanel Orientation="Horizontal">
+                    <Button x:Name="RecordingsButton" Style="{StaticResource BandButton}" Click="Recordings_Click"><TextBlock Text="Recordings"/></Button>
+                    <Button Style="{StaticResource BandButton}" Click="SetTimer_Click"><TextBlock x:Name="TimerText" Text="Set Timer"/></Button>
+                    <Button Style="{StaticResource BandButton}" Click="Settings_Click"><TextBlock Text="Settings"/></Button>
+                    <Button x:Name="HelpButton" Style="{StaticResource BandButton}" Click="Help_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Help"/>
+                            <TextBlock Text="&#xE70D;" FontFamily="{StaticResource IconFont}" FontSize="9" Margin="6,2,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </DockPanel>
+
+            <!-- Area -->
+            <Grid Margin="18,16,18,16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="40"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="&#xE7F4;" Style="{StaticResource Icon}" FontSize="22" HorizontalAlignment="Left"/>
+                <TextBlock Grid.Column="1" Text="Area" Style="{StaticResource Label}" Margin="0,0,18,0"/>
+                <ComboBox x:Name="AreaCombo" Grid.Column="2" Width="230" HorizontalAlignment="Left" SelectionChanged="Area_Changed"/>
+            </Grid>
+            <TextBlock x:Name="AreaDetail" Style="{StaticResource Subtle}" Margin="76,-10,18,12" FontSize="12" TextTrimming="CharacterEllipsis" Visibility="Collapsed"/>
+            <Separator Margin="10,0"/>
+
+            <!-- Sound -->
+            <Grid Margin="18,14,18,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="40"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="&#xE720;" Style="{StaticResource Icon}" FontSize="20" HorizontalAlignment="Left"/>
+                <CheckBox x:Name="MicCheck" Grid.Column="1" Click="Options_Changed">
+                    <TextBlock Text="Microphone" FontWeight="SemiBold"/>
+                </CheckBox>
+                <ProgressBar x:Name="MicLevel" Grid.Column="2" Height="5" Width="120" HorizontalAlignment="Right" Maximum="1" Visibility="Hidden"/>
+            </Grid>
+            <Grid Margin="18,6,18,14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="40"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="&#xE767;" Style="{StaticResource Icon}" FontSize="20" HorizontalAlignment="Left"/>
+                <CheckBox x:Name="PcCheck" Grid.Column="1" Click="Options_Changed">
+                    <TextBlock Text="PC Sounds" FontWeight="SemiBold"/>
+                </CheckBox>
+                <ProgressBar x:Name="PcLevel" Grid.Column="2" Height="5" Width="120" HorizontalAlignment="Right" Maximum="1" Visibility="Hidden"/>
+            </Grid>
+            <Separator Margin="10,0"/>
+
+            <!-- Webcam -->
+            <Grid Margin="18,14,18,14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="40"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="&#xE8B8;" Style="{StaticResource Icon}" FontSize="20" HorizontalAlignment="Left"/>
+                <CheckBox x:Name="CamCheck" Grid.Column="1" Click="Options_Changed">
+                    <TextBlock Text="Webcam" FontWeight="SemiBold"/>
+                </CheckBox>
+            </Grid>
+            <Separator Margin="10,0"/>
+
+            <!-- Record / status -->
+            <Grid Margin="18,12,18,14">
+                <TextBlock x:Name="StatusText" Style="{StaticResource Subtle}" HorizontalAlignment="Left" FontSize="12"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Button x:Name="RecordButton" Width="118" Height="40" Click="Record_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <Grid Width="22" Height="22" Margin="0,0,10,0">
+                                <Ellipse Fill="White"/>
+                                <Ellipse x:Name="RecordDot" Width="14" Height="14" Fill="{StaticResource RecordBrush}"/>
+                                <Rectangle x:Name="StopSquare" Width="10" Height="10" Fill="#FF333333" Visibility="Collapsed"/>
+                            </Grid>
+                            <TextBlock x:Name="RecordText" Text="Record" FontSize="14" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="PauseButton" Height="40" MinWidth="40" Width="44" Margin="8,0,0,0" Click="Pause_Click" Visibility="Collapsed" ToolTip="Pause / resume">
+                        <TextBlock x:Name="PauseGlyph" Text="&#xE769;" Style="{StaticResource Icon}"/>
+                    </Button>
+                </StackPanel>
+                <TextBlock x:Name="ElapsedText" Style="{StaticResource Subtle}" HorizontalAlignment="Right" FontSize="13" FontFamily="Consolas"/>
+            </Grid>
+        </StackPanel>
+    </Border>
+</Window>

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="NAudio.Wasapi" Version="3.3.0" />
+    <PackageReference Include="Vortice.Direct3D11" Version="3.8.3" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="ScreenRecorder.Tests" />
+    <InternalsVisibleTo Include="ScreenRecorder" />
+  </ItemGroup>
+</Project>
