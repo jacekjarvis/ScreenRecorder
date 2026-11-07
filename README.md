@@ -30,6 +30,18 @@ for the look and feel being matched.
 - [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
 - FFmpeg: put `ffmpeg.exe` next to `JarvoScreenRecorder.exe`, or install it with `winget install Gyan.FFmpeg`
 
+## Install (no setup needed on the PC)
+
+Download `JarvoScreenRecorder-Setup-<version>.exe` from the
+[Releases page](https://github.com/jacekjarvis/ScreenRecorder/releases/latest) and run it.
+.NET and FFmpeg are included, so nothing else needs installing. It installs for the current user
+(no administrator prompt), adds a desktop icon and Start menu entry, and can be removed from
+Settings → Apps. Windows SmartScreen may warn about an unrecognised app the first time:
+choose **More info → Run anyway**.
+
+To build the installer yourself: `powershell -ExecutionPolicy Bypass -File tools/build-installer.ps1`
+(needs Inno Setup 6: `winget install JRSoftware.InnoSetup`).
+
 ## Build and run
 
 ```bash

@@ -1,0 +1,18 @@
+Jarvo Screen Recorder includes the following third-party software.
+
+FFmpeg (ffmpeg.exe)
+  Build: gyan.dev "full" build, licensed under the GNU General Public License v3.
+  Source code: https://ffmpeg.org/download.html  and  https://www.gyan.dev/ffmpeg/builds/
+  License text: https://www.gnu.org/licenses/gpl-3.0.html
+
+.NET runtime and Windows Desktop runtime
+  Copyright (c) .NET Foundation and Contributors. MIT License.
+  https://github.com/dotnet/runtime  https://github.com/dotnet/wpf
+
+NAudio
+  Copyright (c) Mark Heath and contributors. MIT License.
+  https://github.com/naudio/NAudio
+
+Vortice.Windows
+  Copyright (c) Amer Koleci and contributors. MIT License.
+  https://github.com/amerkoleci/Vortice.Windows
