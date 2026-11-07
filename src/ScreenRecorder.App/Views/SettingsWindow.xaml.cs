@@ -10,7 +10,10 @@ namespace ScreenRecorder.App.Views;
 public partial class SettingsWindow : Window
 {
     private readonly AppSettings _s;
-    private sealed record Choice(string? Id, string Name);
+    private sealed record Choice(string? Id, string Name)
+    {
+        public override string ToString() => Name;
+    }
 
     public SettingsWindow(AppSettings settings)
     {

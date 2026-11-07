@@ -2,7 +2,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using ScreenRecorder.App.Services;
+using ScreenRecorder.Core.Audio;
 using ScreenRecorder.Core.Interop;
 
 namespace ScreenRecorder.App.Views;
@@ -15,7 +17,15 @@ public partial class RecorderWindow : Window
         public override string ToString() => Label;
     }
 
+    private sealed record DeviceChoice(string? Id, string Name)
+    {
+        public override string ToString() => Name;
+    }
+
     private readonly RecorderController _c;
+    private readonly DispatcherTimer _meterTimer;
+    private AudioLevelMonitor? _micMonitor, _pcMonitor;
+    private string? _micMonitorId = "-", _pcMonitorId = "-";
     private bool _loading;
     private bool _picking;
 
@@ -29,6 +39,10 @@ public partial class RecorderWindow : Window
         _c.StateChanged += UpdateState;
         _c.Tick += UpdateTick;
         _c.RegionFrameChanged += UpdateAreaDetail;
+        _c.StateChanged += UpdateMonitors;
+        _meterTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Render, (_, _) => UpdateMeters(), Dispatcher);
+        IsVisibleChanged += (_, _) => UpdateMonitors();
+        Closed += (_, _) => { _meterTimer.Stop(); StopMonitor(ref _micMonitor); StopMonitor(ref _pcMonitor); };
         Loaded += (_, _) => { LoadOptions(); UpdateState(); };
         Closing += async (_, e) =>
         {
@@ -68,7 +82,10 @@ public partial class RecorderWindow : Window
         MicCheck.IsChecked = S.RecordMicrophone;
         PcCheck.IsChecked = S.RecordPcSounds;
         CamCheck.IsChecked = S.RecordWebcam;
+        FillDevices(MicDevice, AudioDevices.GetInputs(), S.MicrophoneDeviceId);
+        FillDevices(PcDevice, AudioDevices.GetOutputs(), S.PcSoundsDeviceId);
         _loading = false;
+        UpdateMonitors();
         UpdateAreaDetail();
     }
 
@@ -78,6 +95,88 @@ public partial class RecorderWindow : Window
         S.RecordPcSounds = PcCheck.IsChecked == true;
         S.RecordWebcam = CamCheck.IsChecked == true;
         S.Save();
+        UpdateMonitors();
+    }
+
+    // ---------------- sound devices and level meters ----------------
+
+    private static void FillDevices(ComboBox combo, IReadOnlyList<AudioDevice> devices, string? selectedId)
+    {
+        string? defaultName = devices.FirstOrDefault(d => d.IsDefault)?.Name;
+        var items = new List<DeviceChoice> { new(null, defaultName != null ? $"Default — {defaultName}" : "Default device") };
+        items.AddRange(devices.Select(d => new DeviceChoice(d.Id, d.Name)));
+        combo.ItemsSource = items;
+        combo.SelectedItem = items.FirstOrDefault(i => i.Id == selectedId) ?? items[0];
+    }
+
+    /// <summary>Re-reads the devices when a list is opened, so a newly plugged-in mic appears.</summary>
+    private void Devices_Opening(object? sender, EventArgs e)
+    {
+        _loading = true;
+        if (sender == MicDevice) FillDevices(MicDevice, AudioDevices.GetInputs(), S.MicrophoneDeviceId);
+        else FillDevices(PcDevice, AudioDevices.GetOutputs(), S.PcSoundsDeviceId);
+        _loading = false;
+    }
+
+    private void Device_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading) return;
+        if (sender == MicDevice) S.MicrophoneDeviceId = (MicDevice.SelectedItem as DeviceChoice)?.Id;
+        else S.PcSoundsDeviceId = (PcDevice.SelectedItem as DeviceChoice)?.Id;
+        S.Save();
+        UpdateMonitors();
+    }
+
+    /// <summary>
+    /// Listens to the ticked sources while the Recorder is open and not recording (during a recording
+    /// the meters show what is actually being recorded instead).
+    /// </summary>
+    private void UpdateMonitors()
+    {
+        bool idle = IsVisible && !_c.IsBusy;
+        SyncMonitor(ref _micMonitor, ref _micMonitorId, idle && MicCheck.IsChecked == true, S.MicrophoneDeviceId, pcSounds: false, MicMeter);
+        SyncMonitor(ref _pcMonitor, ref _pcMonitorId, idle && PcCheck.IsChecked == true, S.PcSoundsDeviceId, pcSounds: true, PcMeter);
+        bool anyMeter = IsVisible && (MicCheck.IsChecked == true || PcCheck.IsChecked == true);
+        if (anyMeter) _meterTimer.Start(); else _meterTimer.Stop();
+        MicMeter.Opacity = MicCheck.IsChecked == true ? 1 : 0.35;
+        PcMeter.Opacity = PcCheck.IsChecked == true ? 1 : 0.35;
+        if (MicCheck.IsChecked != true) MicMeter.Reset();
+        if (PcCheck.IsChecked != true) PcMeter.Reset();
+    }
+
+    private void SyncMonitor(ref AudioLevelMonitor? monitor, ref string? currentId, bool wanted, string? deviceId, bool pcSounds, LevelMeter meter)
+    {
+        if (monitor != null && (!wanted || currentId != deviceId)) StopMonitor(ref monitor);
+        if (!wanted || monitor != null) return;
+        try
+        {
+            monitor = new AudioLevelMonitor(deviceId, pcSounds);
+            currentId = deviceId;
+            meter.ToolTip = pcSounds ? $"{monitor.DeviceName}: play some sound and the bar should move" : $"{monitor.DeviceName}: speak and the bar should move";
+        }
+        catch (Exception ex)
+        {
+            monitor = null;
+            meter.ToolTip = $"This device can't be opened: {ex.Message}";
+        }
+    }
+
+    private static void StopMonitor(ref AudioLevelMonitor? monitor)
+    {
+        monitor?.Dispose();
+        monitor = null;
+    }
+
+    private void UpdateMeters()
+    {
+        if (_c.Session is { } s && _c.State is RecorderState.Recording or RecorderState.Paused)
+        {
+            MicMeter.Push(S.RecordMicrophone && _c.State == RecorderState.Recording ? s.MicrophoneLevel : 0);
+            PcMeter.Push(S.RecordPcSounds && _c.State == RecorderState.Recording ? s.PcSoundsLevel : 0);
+            return;
+        }
+        if (MicCheck.IsChecked == true) MicMeter.Push(_micMonitor?.TakePeak() ?? 0);
+        if (PcCheck.IsChecked == true) PcMeter.Push(_pcMonitor?.TakePeak() ?? 0);
     }
 
     private async void Area_Changed(object sender, SelectionChangedEventArgs e)
@@ -172,8 +271,7 @@ public partial class RecorderWindow : Window
         PauseButton.Visibility = recording ? Visibility.Visible : Visibility.Collapsed;
         PauseGlyph.Text = _c.State == RecorderState.Paused ? "" : "";
         AreaCombo.IsEnabled = MicCheck.IsEnabled = PcCheck.IsEnabled = CamCheck.IsEnabled = !_c.IsBusy;
-        MicLevel.Visibility = recording && S.RecordMicrophone ? Visibility.Visible : Visibility.Hidden;
-        PcLevel.Visibility = recording && S.RecordPcSounds ? Visibility.Visible : Visibility.Hidden;
+        MicDevice.IsEnabled = PcDevice.IsEnabled = !_c.IsBusy;
         TimerText.Text = S.ScheduleEnabled || _c.State == RecorderState.Scheduled ? "Set Timer •" : "Set Timer";
         Bar.Title = _c.State switch
         {
@@ -198,8 +296,6 @@ public partial class RecorderWindow : Window
         {
             ElapsedText.Text = _c.Elapsed.ToString(@"hh\:mm\:ss");
             StatusText.Text = _c.State == RecorderState.Paused ? "Paused" : $"{_c.SizeBytes / (1024.0 * 1024):0} MB";
-            MicLevel.Value = s.MicrophoneLevel;
-            PcLevel.Value = s.PcSoundsLevel;
         }
         else
         {

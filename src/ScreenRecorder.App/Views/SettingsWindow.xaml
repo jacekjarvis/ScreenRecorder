@@ -47,9 +47,9 @@
                     <StackPanel>
                         <TextBlock Text="Sound sources" Style="{StaticResource Heading}"/>
                         <TextBlock Text="Microphone" Margin="0,0,0,4"/>
-                        <ComboBox x:Name="MicCombo" Width="360" HorizontalAlignment="Left" Margin="0,0,0,14" DisplayMemberPath="Name"/>
+                        <ComboBox x:Name="MicCombo" Width="360" HorizontalAlignment="Left" Margin="0,0,0,14"/>
                         <TextBlock Text="PC sounds (speakers / headphones)" Margin="0,0,0,4"/>
-                        <ComboBox x:Name="PcCombo" Width="360" HorizontalAlignment="Left" Margin="0,0,0,14" DisplayMemberPath="Name"/>
+                        <ComboBox x:Name="PcCombo" Width="360" HorizontalAlignment="Left" Margin="0,0,0,14"/>
                         <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap"
                                    Text="Each source is recorded on its own track. Turn them on or off on the main window."/>
                     </StackPanel>
@@ -58,7 +58,7 @@
                     <StackPanel>
                         <TextBlock Text="Webcam" Style="{StaticResource Heading}"/>
                         <TextBlock Text="Device" Margin="0,0,0,4"/>
-                        <ComboBox x:Name="CamCombo" Width="360" HorizontalAlignment="Left" Margin="0,0,0,14" DisplayMemberPath="Name"/>
+                        <ComboBox x:Name="CamCombo" Width="360" HorizontalAlignment="Left" Margin="0,0,0,14"/>
                         <TextBlock Style="{StaticResource Subtle}" TextWrapping="Wrap"
                                    Text="The webcam isn't shown while recording. It appears as picture-in-picture (bottom right) when you export."/>
                     </StackPanel>
